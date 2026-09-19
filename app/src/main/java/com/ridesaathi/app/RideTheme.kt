@@ -66,6 +66,10 @@ fun RideIcon(kind: String, modifier: Modifier = Modifier, color: Color = Materia
             "arrow" -> { line(8f,5f,15f,12f); line(15f,12f,8f,19f) }
             "back" -> { line(15f,5f,8f,12f); line(8f,12f,15f,19f) }
             "check" -> { line(5f,12f,10f,17f); line(10f,17f,20f,6f) }
+            "search" -> {
+                drawCircle(color, 9*s, Offset(10.5f*s, 10.5f*s), style = stroke)
+                line(16.5f, 16.5f, 21f, 21f)
+            }
             else -> {
                 drawCircle(color, 7*s, Offset(12*s,9*s), style = stroke)
                 drawCircle(color, 2*s, Offset(12*s,9*s), style = stroke)

@@ -4,7 +4,7 @@
 - Have a list of saved places inside the app done during the initial onboarding process of the app.
 - The onboarding process can be initially setup by a family member once.
 - User needs to enter the Home address and it is mandatory for all users to enter their home address.
-- Multi-lingual Support (Englist/Hindi/Telugu for now)
+- Multi-lingual Support (English/Hindi for now; Telugu translations archived for later)
 - The entire app should work with the same language once the user has chosen it, even while onboarding.
 - Extremely easy to use and friction less to use.
 - Confirm the location to the user first before continuing to the cab-service app.
@@ -28,7 +28,7 @@
 - Stores saved destinations
 - Lets user tap destination
 - Lets user speak destination
-- Understands Multi-lingual (English/Hindi/Telugu)
+- Understands Multi-lingual (English/Hindi)
 - Confirms destination
 - Gets current pickup location
 - Generates Uber handoff
@@ -110,7 +110,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Launch] --> B[Choose Language English or Hindi or Telugu]
+    A[Launch] --> B[Choose Language English or Hindi]
  B --> C[Everything Switches Immediately]
 
  B --> D[Enter User Name]
@@ -162,7 +162,6 @@ K --> C
 | ----------------- | -------------------------------- |
 | ID                | Internal Identity                |
 | Friendly Name     | "Home", "Doctor", "Ramesh House" |
-| Voice aliases     | "hospital", "doctor", "etc"      |
 | Formatted address | Confirmation + Uber              |
 | Latitude          | Navigation                       |
 | Longitude         | Navigation                       |
@@ -243,8 +242,19 @@ The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device pref
 
 1. Install Android Studio with JDK 21 and Android SDK 36. Open this directory as a Gradle project.
 2. Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. No map API key or billing account is needed. The app needs internet for address search and map preview, location permission for pickup, and microphone permission for voice input.
-3. Complete onboarding, search for and select Home, check its pin on the map, add any other destinations, and verify the Uber handoff. On Android, Uber may show the destination after the rider taps **Set Pickup Location**.
+3. Complete onboarding, search for and select Home, save it, add any other destinations, and verify the Uber handoff. On Android, Uber may show the destination after the rider taps **Set Pickup Location**.
 
-Address search uses the public Nominatim service only when Search is tapped. It does not autocomplete; results are cached in memory, and requests from one device are limited to one per second. The public service's limit applies to **all devices combined**, so use it only for a few prototype testers. The map preview uses OpenStreetMap's embedded map, which displays attribution and follows normal browser tile caching. Both HTTPS service URLs can be changed in Settings on each installed device without rebuilding the APK; replacement services must support the same search or embed URL parameters. Public services can refuse or become unavailable, so use appropriately provisioned services before a wider pilot. See the [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) and [tile policy](https://operations.osmfoundation.org/policies/tiles/).
+Address search uses the public Nominatim service; results are cached in memory, and requests from one device are limited to one per second. The public service's limit applies to **all devices combined**, so use it only for a few prototype testers. Place setup and ride confirmation share a bundled Leaflet 1.9.4 viewer that displays OpenStreetMap raster tiles, a destination pin, and attribution with normal WebView HTTP caching. Bundling the viewer avoids depending on the changing OpenStreetMap embed page, a JavaScript CDN, or WebGL support. Only the visible map tiles need a network connection. Places can be saved as soon as an address is selected, without a map-confirmation checkbox or waiting for tiles. Map failures and a 20-second loading timeout offer a retry. Existing custom HTTPS embed endpoints remain supported. Public services can refuse or become unavailable, so use appropriately provisioned services before a wider pilot. See the [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) and [tile policy](https://operations.osmfoundation.org/policies/tiles/).
 
-Saved places remain on the device. Clearing app data removes them. The prototype has no family account, cloud sync, fare information, ride type selection, or ride status. Before the elderly-user pilot, validate the three speech and spoken-output languages, screen reader behavior, map search, and the final Uber screen on the actual target phones.
+Map loading regression checks: `node --test app/src/test/js/map-preview.test.cjs`. Android checks: `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug`. Device UI checks: `./gradlew :app:connectedQaAndroidTest` (uses a separate `.qa` app and requires an unlocked phone that allows test installations). Leaflet's license is included in `app/src/main/assets/map/LICENSE`.
+
+Saved places remain on the device. Clearing app data removes them. The prototype has no family account, cloud sync, fare information, ride type selection, or ride status. Before the elderly-user pilot, validate English and Hindi speech and spoken output, screen reader behavior, map search, and the final Uber screen on the actual target phones. Telugu is temporarily unavailable; existing Telugu profiles switch to English, and translations are retained in `Words.kt` for future support.
+
+
+### Pilot voice matching and test guide
+
+Saved names work across supported Hindi/Roman spellings, with common bilingual place words. Place setup asks for one name; aliases saved by earlier versions are retained for voice matching. Overlapping names now prefer the complete, more specific phrase: with `ghar` and `beta ka ghar` saved, `बेटे के घर जाना है` selects `beta ka ghar`, while `घर जाना है` selects Home. Mentioning two separate destinations still asks the user to choose. Every match goes through destination confirmation before Uber opens.
+
+Place setup starts with a dedicated address picker: the search field stays above a scrollable result list, with no name fields or map taking up result space. Selecting an address opens a short form with one place name, a Change address action, an automatically displayed map preview, and a fixed Save button. Back from changing an address keeps the previously selected address. Address search runs automatically after a 500 ms pause once at least three characters are entered. The address field shows pending and loading states; its small search icon can search immediately or retry. Changing the query or leaving the editor cancels pending searches and ignores stale results. Confirmation actions appear before the map; cancellation remains available during location lookup. Permission-denial messages include an app-settings link. Deleting a saved place requires confirmation, and Home cannot be deleted.
+
+See [the pilot test guide](docs/PILOT_TESTING.md) for checks to run with a family member before the first elderly-user sessions.

@@ -17,6 +17,7 @@ class NominatimPlaceSearchProvider(private val endpoint: String) : PlaceSearchPr
     override fun search(query: String, language: String): List<PlaceCandidate> {
         val cacheKey = "$endpoint|$language|${query.trim().lowercase(Locale.ROOT)}"
         synchronized(lock) {
+            if (Thread.currentThread().isInterrupted) throw InterruptedException("Search cancelled")
             cache[cacheKey]?.let { return it }
             val wait = 1_000 - (SystemClock.elapsedRealtime() - lastRequestAt)
             if (wait > 0) Thread.sleep(wait)
@@ -33,6 +34,7 @@ class NominatimPlaceSearchProvider(private val endpoint: String) : PlaceSearchPr
             .appendQueryParameter("q", query)
             .appendQueryParameter("format", "jsonv2")
             .appendQueryParameter("limit", "5")
+            .appendQueryParameter("countrycodes", "in")
             .appendQueryParameter("accept-language", language)
             .build().toString()
         val connection = URL(url).openConnection() as HttpURLConnection

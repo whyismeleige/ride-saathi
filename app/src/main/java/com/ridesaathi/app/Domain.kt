@@ -66,19 +66,6 @@ class LocalStore(context: Context) {
     }
 }
 
-object DestinationResolver {
-    fun matches(speech: String, places: List<SavedPlace>): List<SavedPlace> {
-        val heard = speech.trim().lowercase()
-        if (heard.isBlank()) return emptyList()
-        return places.filter { place ->
-            (listOf(place.name) + place.aliases + if (place.isHome) listOf("home", "घर", "ఇల్లు") else emptyList()).any { alias ->
-                val normalized = alias.trim().lowercase()
-                normalized.isNotBlank() && (heard == normalized ||
-                    heard.contains(normalized) && normalized.length >= 3)
-            }
-        }
-    }
-}
 
 object UberHandoff {
     const val packageName = "com.ubercab"

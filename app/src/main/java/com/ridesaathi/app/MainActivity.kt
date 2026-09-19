@@ -6,8 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Bundle
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -18,13 +18,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -33,9 +39,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.LocationServices
@@ -54,32 +62,47 @@ class MainActivity : ComponentActivity() {
     private var pendingHome = false
     private var editingId: String? = null
     private var draftName by mutableStateOf("")
-    private var draftAliases by mutableStateOf("")
+    private var pickingAddress by mutableStateOf(false)
     private var draftAddress by mutableStateOf("")
     private var draftPosition by mutableStateOf<PlaceCandidate?>(null)
     private var searchQuery by mutableStateOf("")
     private var searchResults by mutableStateOf<List<PlaceCandidate>>(emptyList())
     private var searching by mutableStateOf(false)
-    private var mapReady by mutableStateOf(false)
-    private var mapFailed by mutableStateOf(false)
-    private var mapReload by mutableIntStateOf(0)
+    private var searchPending by mutableStateOf(false)
     private var searchGeneration = 0
+    private val searchHandler = Handler(Looper.getMainLooper())
+    private var pendingSearch: Runnable? = null
+    private var searchThread: Thread? = null
+    private var searchProvider: (String) -> PlaceSearchProvider = { NominatimPlaceSearchProvider(it) }
     private var searchEndpoint by mutableStateOf(ProviderEndpoints.SEARCH)
     private var mapEndpoint by mutableStateOf(ProviderEndpoints.MAP)
-    private var endpointError by mutableStateOf(false)
-    private var mapChecked by mutableStateOf(false)
-    private var speakingConfirmation = false
     private var listening by mutableStateOf(false)
-    private var speechFailures = 0
+    private var speechTranscript by mutableStateOf("")
+    private var transcriptIsFinal by mutableStateOf(false)
     private var handoffInProgress by mutableStateOf(false)
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var speechGeneration = 0
+    private val speechHandler = Handler(Looper.getMainLooper())
+    private var speechTimeout: Runnable? = null
+    private var locationCancellation: CancellationTokenSource? = null
+    private var locationGeneration = 0
+    private var showDeleteConfirmation by mutableStateOf(false)
 
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startListening() else message = word("micDenied")
+        if (screen !in listOf("home", "confirm")) return@registerForActivityResult
+        if (granted) startListening() else {
+            message = word("micDenied")
+            speak(message)
+        }
     }
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result.values.any { it }) fetchLocation() else { handoffInProgress = false; message = word("locationDenied") }
+        if (!handoffInProgress || screen != "confirm" || selected == null) return@registerForActivityResult
+        if (result.values.any { it }) fetchLocation() else {
+            handoffInProgress = false
+            message = word("locationDenied")
+            speak(message)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +112,10 @@ class MainActivity : ComponentActivity() {
         searchEndpoint = store.searchEndpoint()
         mapEndpoint = store.mapEndpoint()
         profile = store.profile()
+        if (profile.language == "te") {
+            profile = profile.copy(language = "en")
+            store.saveProfile(profile)
+        }
         places = store.places()
         screen = if (profile.completed && places.any { it.isHome }) "home" else "onboarding"
         tts = TextToSpeech(this) { status ->
@@ -104,7 +131,6 @@ class MainActivity : ComponentActivity() {
     private fun word(key: String) = Words.get(profile.language, key)
     private fun locale() = when (profile.language) {
         "hi" -> Locale.forLanguageTag("hi-IN")
-        "te" -> Locale.forLanguageTag("te-IN")
         else -> Locale.forLanguageTag("en-IN")
     }
     private fun speak(value: String) {
@@ -115,7 +141,14 @@ class MainActivity : ComponentActivity() {
     private fun navigateBack() {
         when (screen) {
             "confirm", "clarify" -> cancelRide()
-            "editor" -> { searchGeneration++; searching = false; screen = if (profile.completed) "settings" else "onboarding" }
+            "editor" -> {
+                cancelAddressSearch()
+                if (pickingAddress && draftPosition != null) {
+                    pickingAddress = false
+                    searchQuery = draftAddress
+                    searchResults = emptyList()
+                } else screen = if (profile.completed) "settings" else "onboarding"
+            }
             "settings" -> screen = "home"
         }
         message = ""
@@ -124,40 +157,56 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun App() {
         BackHandler(enabled = screen !in listOf("home", "onboarding")) {
-            if (!handoffInProgress) navigateBack()
+            navigateBack()
         }
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                if (screen != "editor") Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
                     Box(Modifier.padding(10.dp)) { RideIcon("pin") }
                 }
-                Text("Ride Saathi", modifier = Modifier.weight(1f).padding(start = 12.dp),
+                val title = if (screen != "editor") "Ride Saathi" else word(when {
+                    pickingAddress -> "search"
+                    editingId != null -> "editPlace"
+                    pendingHome -> "addHome"
+                    else -> "addPlace"
+                })
+                Text(title, modifier = Modifier.weight(1f).padding(start = if (screen == "editor") 0.dp else 12.dp),
                     style = MaterialTheme.typography.titleMedium)
                 if (screen == "home") TextButton(onClick = { stopListening(); message = ""; screen = "settings" }) {
                     Text(word("settings"))
                 }
-                else if (screen != "onboarding") TextButton(onClick = { navigateBack() }, enabled = !handoffInProgress) {
+                else if (screen != "onboarding") TextButton(onClick = { navigateBack() }) {
                     RideIcon("back", Modifier.size(18.dp)); Text(word("back"))
                 }
             }
             key(screen) {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                if (screen == "editor") {
+                    Editor(Modifier.weight(1f))
+                } else if (screen == "settings") {
+                    Settings(Modifier.weight(1f))
+                } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     when (screen) {
                         "onboarding" -> Onboarding()
                         "home" -> Home()
-                        "editor" -> Editor()
-                        "settings" -> Settings()
                         "confirm" -> Confirmation()
                         "clarify" -> Clarification()
                     }
                 }
             }
             if (message.isNotBlank()) Surface(
-                color = if (handoffInProgress || message == word("servicesSaved")) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                color = if (handoffInProgress) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                 modifier = Modifier.fillMaxWidth()) {
-                Text(message, modifier = Modifier.padding(20.dp).semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyLarge)
+                Column(Modifier.padding(16.dp)) {
+                    Text(message, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyLarge)
+                    if (message == word("micDenied") || message == word("locationDenied")) {
+                        TextButton(onClick = {
+                            startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                android.net.Uri.parse("package:$packageName")))
+                        }) { Text(word("openAppSettings")) }
+                    }
+                }
             }
         }
     }
@@ -174,7 +223,7 @@ class MainActivity : ComponentActivity() {
     private fun LanguagePicker() {
         Text(word("language"), style = MaterialTheme.typography.titleLarge)
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("en" to "English", "hi" to "हिन्दी", "te" to "తెలుగు").forEach { (code, label) ->
+            listOf("en" to "English", "hi" to "हिन्दी").forEach { (code, label) ->
                 FilterChip(selected = profile.language == code, onClick = {
                     profile = profile.copy(language = code)
                     store.saveProfile(profile)
@@ -232,6 +281,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Text(if (listening) word("listening") else word("voiceHint"),
                     style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                SpeechTranscript()
                 LargeButton(if (listening) word("stop") else word("speak")) {
                     if (listening) stopListening() else requestMicrophone()
                 }
@@ -244,6 +294,25 @@ class MainActivity : ComponentActivity() {
         places.sortedByDescending { it.isHome }.forEach { place -> PlaceRow(place, false) }
         Text(word("handoffHint"), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    @Composable
+    private fun SpeechTranscript() {
+        if (speechTranscript.isBlank()) return
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    word(if (transcriptIsFinal) "recognizedSpeech" else "heardSoFar"),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(speechTranscript, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
     }
 
     @Composable
@@ -260,8 +329,7 @@ class MainActivity : ComponentActivity() {
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(if (place.isHome) word("home") else place.name, style = MaterialTheme.typography.titleLarge)
-                    Text(place.address, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (editing) Text(word("edit"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    ExpandableAddress(place)
                 }
                 RideIcon("arrow", Modifier.size(18.dp))
             }
@@ -269,123 +337,204 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun Settings() {
-        Text(word("settings"), style = MaterialTheme.typography.headlineMedium)
-        SectionCard { LanguagePicker() }
-        Text(word("manage"), style = MaterialTheme.typography.titleLarge)
-        places.forEach { PlaceRow(it, true) }
-        LargeButton(word("addPlace")) { openEditor(null, false) }
-        var showServices by remember { mutableStateOf(false) }
-        TextButton(onClick = { showServices = !showServices }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Text(word("providerSettings"))
-        }
-        if (showServices) {
-            SectionCard {
-                OutlinedTextField(value = searchEndpoint, onValueChange = { searchEndpoint = it; endpointError = false },
-                    label = { Text(word("searchService")) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = mapEndpoint, onValueChange = { mapEndpoint = it; endpointError = false },
-                    label = { Text(word("mapService")) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                if (endpointError) Text(word("invalidService"), color = MaterialTheme.colorScheme.error)
-                OutlinedButton(onClick = {
-                    if (ProviderEndpoints.valid(searchEndpoint) && ProviderEndpoints.valid(mapEndpoint)) {
-                        store.saveProviderEndpoints(searchEndpoint, mapEndpoint)
-                        endpointError = false
-                        message = word("servicesSaved")
-                    } else endpointError = true
-                }, modifier = Modifier.fillMaxWidth()) { Text(word("saveServices")) }
+    private fun ExpandableAddress(
+        place: SavedPlace,
+        style: TextStyle = MaterialTheme.typography.bodyMedium
+    ) {
+        var expanded by remember(place.id, place.address) { mutableStateOf(false) }
+        var overflows by remember(place.id, place.address) { mutableStateOf(false) }
+        Column(Modifier.fillMaxWidth()) {
+            Text(
+                place.address,
+                modifier = Modifier.fillMaxWidth(),
+                style = style,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (expanded) Int.MAX_VALUE else 2,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { result ->
+                    if (!expanded) overflows = result.hasVisualOverflow
+                }
+            )
+            if (expanded || overflows) {
+                TextButton(onClick = { expanded = !expanded }) {
+                    Text(word(if (expanded) "showLess" else "showMore"))
+                }
             }
         }
-        OutlinedButton(onClick = { screen = "home" }, modifier = Modifier.fillMaxWidth()) { Text(word("done")) }
     }
 
     @Composable
-    private fun Editor() {
-        Text(if (pendingHome) word("addHome") else word("addPlace"), style = MaterialTheme.typography.headlineMedium)
-        Text(word("editorHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(value = draftName, onValueChange = { draftName = it },
-            label = { Text(word("placeName")) }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-            enabled = !pendingHome)
-        OutlinedTextField(value = draftAliases, onValueChange = { draftAliases = it },
-            label = { Text(word("aliases")) }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = searchQuery, onValueChange = {
-            searchQuery = it
-            draftPosition = null
-            draftAddress = ""
-            mapChecked = false
-            searchResults = emptyList()
-        },
-            label = { Text(word("address")) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-        LargeButton(if (searching) word("wait") else word("search"), enabled = !searching && searchQuery.isNotBlank()) { searchAddress() }
-        searchResults.forEach { result ->
-            ElevatedCard(onClick = {
-                draftPosition = result
-                draftAddress = result.address
-                mapChecked = false
-                mapReady = false
-                mapFailed = false
+    private fun Settings(modifier: Modifier = Modifier) {
+        Column(modifier.fillMaxWidth()) {
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Text(word("settings"), style = MaterialTheme.typography.headlineMedium)
+                SectionCard { LanguagePicker() }
+                Text(word("manage"), style = MaterialTheme.typography.titleLarge)
+                places.forEach { PlaceRow(it, true) }
+            }
+            Surface(shadowElevation = 4.dp) {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    LargeButton(word("addPlace")) { openEditor(null, false) }
+                    OutlinedButton(onClick = { screen = "home" },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        Text(word("done"))
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun Editor(modifier: Modifier = Modifier) {
+        val focusManager = LocalFocusManager.current
+        Column(modifier.fillMaxWidth()) {
+            if (pickingAddress) {
+                AddressPicker(Modifier.weight(1f))
+            } else {
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (pendingHome) {
+                        Text(word("home"), style = MaterialTheme.typography.titleLarge)
+                    } else {
+                        OutlinedTextField(
+                            value = draftName, onValueChange = { draftName = it },
+                            label = { Text(word("placeName")) },
+                            supportingText = { Text(word("placeNameHint")) },
+                            modifier = Modifier.fillMaxWidth(), singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                        )
+                    }
+                    SectionCard {
+                        Text(word("address"), style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(draftAddress, style = MaterialTheme.typography.bodyLarge)
+                        OutlinedButton(onClick = {
+                            focusManager.clearFocus()
+                            searchQuery = draftAddress
+                            searchResults = emptyList()
+                            message = ""
+                            pickingAddress = true
+                        }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                            Text(word("changeAddress"))
+                        }
+                    }
+                    draftPosition?.let { point ->
+                        MapPreview(OpenStreetMapPreviewProvider(mapEndpoint).url(point.latitude, point.longitude), profile.language)
+                    }
+                    if (editingId != null && !pendingHome) {
+                        TextButton(onClick = { showDeleteConfirmation = true },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                            Text(word("delete"))
+                        }
+                    }
+                }
+                Surface(shadowElevation = 4.dp) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+                        LargeButton(word("save"), enabled = draftPosition != null && draftName.isNotBlank()) {
+                            focusManager.clearFocus()
+                            savePlace()
+                        }
+                    }
+                }
+            }
+        }
+        if (showDeleteConfirmation) AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text(word("delete")) }, text = { Text(draftName) },
+            confirmButton = { TextButton(onClick = { showDeleteConfirmation = false; deletePlace() }) { Text(word("delete")) } },
+            dismissButton = { TextButton(onClick = { showDeleteConfirmation = false }) { Text(word("cancel")) } })
+    }
+
+    @Composable
+    private fun AddressPicker(modifier: Modifier = Modifier) {
+        val focusManager = LocalFocusManager.current
+        val focusRequester = remember { FocusRequester() }
+        val keyboardController = LocalSoftwareKeyboardController.current
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
+            keyboardController?.show()
+        }
+        Column(modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            OutlinedTextField(value = searchQuery, onValueChange = {
+                searchQuery = it
                 searchResults = emptyList()
                 message = ""
-            }, modifier = Modifier.fillMaxWidth()) {
-                Text(result.address, modifier = Modifier.padding(16.dp))
-            }
-        }
-        if (draftPosition != null) {
-            Text("${word("address")}: $draftAddress", style = MaterialTheme.typography.bodyLarge)
-            val point = draftPosition!!
-            val mapUrl = OpenStreetMapPreviewProvider(mapEndpoint).url(point.latitude, point.longitude)
-            key(mapUrl, mapReload) {
-                AndroidView(factory = { context ->
-                    WebView(context).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.allowFileAccess = false
-                        settings.allowContentAccess = false
-                        settings.userAgentString = "${settings.userAgentString} RideSaathi/0.1 (com.ridesaathi.app)"
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageFinished(view: WebView?, url: String?) { mapReady = true }
-                            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?,
-                                error: android.webkit.WebResourceError?) {
-                                if (request?.isForMainFrame == true) mapFailed = true
-                            }
-                            override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean = true
+                scheduleAddressSearch()
+            },
+                label = { Text(word("address")) },
+                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester), singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    focusManager.clearFocus()
+                    searchAddress()
+                }),
+                supportingText = {
+                    Text(word(when {
+                        searching -> "searchingAddress"
+                        searchPending -> "searchPending"
+                        searchResults.isNotEmpty() -> "selectAddress"
+                        else -> "addressSearchHint"
+                    }), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                },
+                trailingIcon = {
+                    if (searching) {
+                        CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    } else {
+                        IconButton(onClick = {
+                            focusManager.clearFocus()
+                            searchAddress()
+                        }, enabled = searchQuery.trim().length >= 3,
+                            modifier = Modifier.semantics { contentDescription = word("search") }) {
+                            RideIcon("search")
                         }
-                        loadUrl(mapUrl)
                     }
-                }, onRelease = { it.destroy() }, modifier = Modifier.fillMaxWidth().height(260.dp).clip(MaterialTheme.shapes.medium))
-            }
-            Text(word("mapAttribution"), style = MaterialTheme.typography.bodySmall)
-            if (mapFailed) {
-                Text(word("mapUnavailable"), color = MaterialTheme.colorScheme.error)
-                OutlinedButton(onClick = {
-                    mapReady = false
-                    mapFailed = false
-                    mapChecked = false
-                    mapReload++
-                }, modifier = Modifier.fillMaxWidth()) { Text(word("retry")) }
-            }
-            Row(Modifier.fillMaxWidth().toggleable(value = mapChecked, enabled = mapReady && !mapFailed,
-                role = Role.Checkbox, onValueChange = { mapChecked = it }).padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = mapChecked, enabled = mapReady && !mapFailed, onCheckedChange = null)
-                Text(word("checkMap"), modifier = Modifier.padding(start = 12.dp))
+                })
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(searchResults) { result ->
+                    OutlinedCard(onClick = {
+                        focusManager.clearFocus()
+                        cancelAddressSearch()
+                        draftPosition = result
+                        draftAddress = result.address
+                        searchQuery = result.address
+                        searchResults = emptyList()
+                        message = ""
+                        pickingAddress = false
+                    }, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            RideIcon("pin", Modifier.size(24.dp))
+                            Text(result.address, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
             }
         }
-        LargeButton(word("save"), enabled = draftPosition != null && mapChecked && mapReady && !mapFailed) { savePlace() }
-        if (editingId != null && !pendingHome) {
-            OutlinedButton(onClick = { deletePlace() }, modifier = Modifier.fillMaxWidth()) { Text(word("delete")) }
-        }
-        OutlinedButton(onClick = { screen = if (profile.completed) "settings" else "onboarding"; message = "" },
-            modifier = Modifier.fillMaxWidth()) { Text(word("back")) }
     }
 
     @Composable
     private fun Confirmation() {
         val place = selected ?: return
+        val mapUrl = OpenStreetMapPreviewProvider(mapEndpoint).url(place.latitude, place.longitude)
         Text(word("confirm"), style = MaterialTheme.typography.headlineMedium)
         SectionCard {
             RideIcon(if (place.isHome) "home" else "pin", Modifier.size(36.dp))
             Text(if (place.isHome) word("home") else place.name, style = MaterialTheme.typography.headlineLarge)
-            Text(place.address, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ExpandableAddress(place, style = MaterialTheme.typography.bodyLarge)
         }
         Text(word("handoffHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (handoffInProgress) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -396,17 +545,19 @@ class MainActivity : ComponentActivity() {
                 startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             }, modifier = Modifier.fillMaxWidth()) { Text(word("openLocation")) }
         }
-        OutlinedButton(onClick = { cancelRide() }, enabled = !handoffInProgress, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+        OutlinedButton(onClick = { cancelRide() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
             Text(word("no"))
         }
         OutlinedButton(onClick = { if (listening) stopListening() else requestMicrophone() }, enabled = !handoffInProgress, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
             Text(if (listening) word("stop") else word("speak"))
         }
+        MapPreview(mapUrl, profile.language)
     }
 
     @Composable
     private fun Clarification() {
         Text(word("ambiguous"), style = MaterialTheme.typography.headlineMedium)
+        SpeechTranscript()
         choices.forEach { PlaceRow(it, false) }
         OutlinedButton(onClick = { cancelRide() }, modifier = Modifier.fillMaxWidth()) { Text(word("cancel")) }
     }
@@ -422,60 +573,79 @@ class MainActivity : ComponentActivity() {
 
     private fun openEditor(place: SavedPlace?, home: Boolean) {
         stopListening()
+        showDeleteConfirmation = false
         pendingHome = home
         editingId = place?.id
         draftName = if (home) word("home") else place?.name.orEmpty()
-        draftAliases = place?.aliases?.joinToString(", ").orEmpty()
+        pickingAddress = place == null
         draftAddress = place?.address.orEmpty()
         draftPosition = place?.let { PlaceCandidate(it.address, it.latitude, it.longitude) }
         searchQuery = place?.address.orEmpty()
         searchResults = emptyList()
-        mapReady = false
-        mapFailed = false
-        searchGeneration++
-        searching = false
-        mapChecked = false
+        cancelAddressSearch()
         message = ""
         screen = "editor"
     }
 
+    private fun cancelAddressSearch() {
+        searchGeneration++
+        pendingSearch?.let { searchHandler.removeCallbacks(it) }
+        pendingSearch = null
+        searchThread?.interrupt()
+        searchThread = null
+        searchPending = false
+        searching = false
+    }
+
+    private fun scheduleAddressSearch() {
+        cancelAddressSearch()
+        if (searchQuery.trim().length < 3) return
+        searchPending = true
+        pendingSearch = Runnable { searchAddress() }.also {
+            searchHandler.postDelayed(it, 500)
+        }
+    }
+
     private fun searchAddress() {
+        cancelAddressSearch()
         val query = searchQuery.trim()
-        if (query.isBlank()) return
-        if (!ProviderEndpoints.valid(searchEndpoint)) { message = word("invalidService"); return }
+        if (query.length < 3 || screen != "editor" || isDestroyed) return
+        if (!ProviderEndpoints.valid(searchEndpoint)) {
+            searching = false
+            message = word("invalidService")
+            return
+        }
         val generation = ++searchGeneration
         searching = true
         searchResults = emptyList()
         message = ""
         val endpoint = searchEndpoint
         val language = locale().toLanguageTag()
-        Thread {
-            val result = runCatching { NominatimPlaceSearchProvider(endpoint).search(query, language) }
+        val provider = searchProvider(endpoint)
+        searchThread = Thread {
+            val result = runCatching { provider.search(query, language) }
             runOnUiThread {
-                if (generation != searchGeneration || isDestroyed) return@runOnUiThread
+                if (generation != searchGeneration || isDestroyed || screen != "editor") return@runOnUiThread
+                searchThread = null
                 searching = false
                 result.onSuccess {
                     searchResults = it
                     if (it.isEmpty()) message = word("noResults")
                 }.onFailure { message = word("offline") }
             }
-        }.start()
+        }.also { it.start() }
     }
 
     private fun savePlace() {
         val point = draftPosition ?: run { message = word("invalidPlace"); return }
         val name = draftName.trim()
-        if (name.isBlank() || draftAddress.isBlank() || !mapChecked) { message = word("invalidPlace"); return }
-        val aliases = draftAliases.split(',').map { it.trim() }.filter { it.isNotBlank() }.distinct()
-        val names = listOf(name) + aliases
-        val collision = places.filterNot { it.id == editingId }.any { other ->
-            (listOf(other.name) + other.aliases).any { existing -> names.any { it.equals(existing, true) } }
-        }
-        if (collision) { message = word("duplicate"); return }
+        if (name.isBlank() || draftAddress.isBlank()) { message = word("invalidPlace"); return }
         val old = places.firstOrNull { it.id == editingId }
         val saved = SavedPlace(id = old?.id ?: java.util.UUID.randomUUID().toString(),
-            name = name, aliases = aliases, address = draftAddress,
+            name = name, aliases = old?.aliases.orEmpty(), address = draftAddress,
             latitude = point.latitude, longitude = point.longitude, isHome = pendingHome)
+        if (DestinationResolver.conflicts(saved, places)) { message = word("duplicate"); return }
+        cancelAddressSearch()
         places = places.filterNot { it.id == editingId } + saved
         store.savePlaces(places)
         message = ""
@@ -484,6 +654,7 @@ class MainActivity : ComponentActivity() {
 
     private fun deletePlace() {
         if (pendingHome) { message = word("replaceHome"); return }
+        cancelAddressSearch()
         places = places.filterNot { it.id == editingId }
         store.savePlaces(places)
         message = ""
@@ -494,7 +665,6 @@ class MainActivity : ComponentActivity() {
         stopListening()
         selected = place
         choices = emptyList()
-        speakingConfirmation = true
         screen = "confirm"
         message = ""
         speak("${word("confirm")} ${if (place.isHome) word("home") else place.name}. ${place.address}")
@@ -503,9 +673,8 @@ class MainActivity : ComponentActivity() {
     private fun cancelRide() {
         stopListening()
         tts?.stop()
-        handoffInProgress = false
+        cancelLocation()
         selected = null
-        speakingConfirmation = false
         message = ""
         screen = "home"
     }
@@ -517,52 +686,81 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startListening() {
+        if (screen !in listOf("home", "confirm") || handoffInProgress) return
         if (!SpeechRecognizer.isRecognitionAvailable(this)) { message = word("voiceUnavailable"); return }
         tts?.stop()
-        recognizer?.destroy()
-        recognizer = SpeechRecognizer.createSpeechRecognizer(this).also { service ->
-            service.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) { listening = true; message = "" }
-                override fun onBeginningOfSpeech() = Unit
-                override fun onRmsChanged(rmsdB: Float) = Unit
-                override fun onBufferReceived(buffer: ByteArray?) = Unit
-                override fun onEndOfSpeech() { listening = false }
-                override fun onError(error: Int) { listening = false; message = word("speechFailed"); speechFailures++ }
-                override fun onResults(results: Bundle?) {
-                    listening = false
-                    val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                    handleSpeech(heard)
-                }
-                override fun onPartialResults(partialResults: Bundle?) = Unit
-                override fun onEvent(eventType: Int, params: Bundle?) = Unit
-            })
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale().toLanguageTag())
-                .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            service.startListening(intent)
+        stopListening()
+        val generation = speechGeneration
+        speechTranscript = ""
+        transcriptIsFinal = false
+        listening = true
+        message = ""
+        fun active() = generation == speechGeneration && !isDestroyed
+        fun failed() {
+            if (!active()) return
+            stopListening()
+            message = word("speechFailed")
         }
+        speechTimeout = Runnable { failed() }.also { speechHandler.postDelayed(it, 20_000) }
+        try {
+            recognizer = SpeechRecognizer.createSpeechRecognizer(this).also { service ->
+                service.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) = Unit
+                    override fun onBeginningOfSpeech() = Unit
+                    override fun onRmsChanged(rmsdB: Float) = Unit
+                    override fun onBufferReceived(buffer: ByteArray?) = Unit
+                    override fun onEndOfSpeech() = Unit // Keep Stop available until the final result.
+                    override fun onError(error: Int) { failed() }
+                    override fun onResults(results: Bundle?) {
+                        if (!active()) return
+                        val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+                        stopListening()
+                        speechTranscript = heard
+                        transcriptIsFinal = true
+                        handleSpeech(heard)
+                    }
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        if (!active()) return
+                        val heard = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                        if (!heard.isNullOrBlank()) { speechTranscript = heard; transcriptIsFinal = false }
+                    }
+                    override fun onEvent(eventType: Int, params: Bundle?) = Unit
+                })
+                service.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale().toLanguageTag())
+                    .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1))
+            }
+        } catch (_: RuntimeException) { failed() }
     }
 
     private fun stopListening() {
-        recognizer?.cancel()
-        recognizer?.destroy()
+        speechGeneration++ // Invalidate callbacks before cancel/destroy can deliver an error.
+        speechTimeout?.let(speechHandler::removeCallbacks)
+        speechTimeout = null
+        val old = recognizer
         recognizer = null
+        old?.cancel()
+        old?.destroy()
         listening = false
     }
 
     private fun handleSpeech(raw: String) {
-        val text = raw.trim().lowercase()
-        if (text.isBlank()) { message = word("speechFailed"); return }
-        val cancelWords = listOf("cancel", "stop", "रद्द", "बंद", "రద్దు", "ఆపు")
-        if (cancelWords.any { text.contains(it) }) { cancelRide(); return }
+        if (screen !in listOf("home", "confirm") || handoffInProgress) return
+        if (raw.isBlank()) { message = word("speechFailed"); return }
+        val decision = VoiceCommands.decision(raw)
+        if (decision == VoiceDecision.Cancel) { cancelRide(); return }
         if (screen == "confirm") {
-            if (listOf("yes", "yeah", "हाँ", "हां", "అవును").any { text.contains(it) }) confirmRide()
-            else if (listOf("no", "नहीं", "కాదు", "వద్దు").any { text.contains(it) }) cancelRide()
-            else message = word("speechFailed")
+            when (decision) {
+                VoiceDecision.Yes -> confirmRide()
+                VoiceDecision.No -> cancelRide()
+                else -> message = word("speechFailed")
+            }
             return
         }
-        val matched = DestinationResolver.matches(text, places)
+        if (decision == VoiceDecision.No) { message = word("unknown"); return }
+        val matched = DestinationResolver.matches(raw, places)
         when (matched.size) {
             0 -> { message = word("unknown"); speak(message) }
             1 -> choose(matched.first())
@@ -571,7 +769,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun confirmRide() {
-        if (handoffInProgress) return
+        if (handoffInProgress || screen != "confirm") return
+        stopListening()
+        tts?.stop()
         val place = selected ?: return
         if (place.address.isBlank()) { message = word("invalidPlace"); return }
         if (!uberInstalled()) { message = word("uberInstall"); return }
@@ -583,7 +783,15 @@ class MainActivity : ComponentActivity() {
         } else locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
+    private fun cancelLocation() {
+        locationGeneration++
+        locationCancellation?.cancel()
+        locationCancellation = null
+        handoffInProgress = false
+    }
+
     private fun fetchLocation() {
+        if (!handoffInProgress || screen != "confirm") return
         val manager = getSystemService(LOCATION_SERVICE) as LocationManager
         if (!manager.isProviderEnabled(LocationManager.GPS_PROVIDER) && !manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
             handoffInProgress = false; message = word("locationUnavailable"); return
@@ -594,9 +802,14 @@ class MainActivity : ComponentActivity() {
         }
         val request = CurrentLocationRequest.Builder().setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .setMaxUpdateAgeMillis(0).setDurationMillis(15_000).build()
+        val generation = ++locationGeneration
+        val cancellation = CancellationTokenSource()
+        locationCancellation?.cancel()
+        locationCancellation = cancellation
         LocationServices.getFusedLocationProviderClient(this)
-            .getCurrentLocation(request, CancellationTokenSource().token)
+            .getCurrentLocation(request, cancellation.token)
             .addOnSuccessListener { location ->
+                if (generation != locationGeneration || !handoffInProgress || isDestroyed || screen != "confirm") return@addOnSuccessListener
                 val place = selected
                 if (location == null || place == null || (location.hasAccuracy() && location.accuracy > 250f)) {
                     handoffInProgress = false; message = word("locationUnavailable"); return@addOnSuccessListener
@@ -608,7 +821,11 @@ class MainActivity : ComponentActivity() {
                     screen = "home"
                 } catch (_: ActivityNotFoundException) { message = word("handoffFailed") }
                 finally { handoffInProgress = false }
-            }.addOnFailureListener { handoffInProgress = false; message = word("locationUnavailable") }
+            }.addOnFailureListener {
+                if (generation == locationGeneration && !isDestroyed) {
+                    handoffInProgress = false; message = word("locationUnavailable")
+                }
+            }
     }
 
     private fun uberInstalled(): Boolean = try {
@@ -620,7 +837,8 @@ class MainActivity : ComponentActivity() {
         val market = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=${UberHandoff.packageName}"))
         try { startActivity(market) }
         catch (_: ActivityNotFoundException) {
-            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=${UberHandoff.packageName}")))
+            try { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=${UberHandoff.packageName}"))) }
+            catch (_: ActivityNotFoundException) { message = word("storeUnavailable") }
         }
     }
 
@@ -630,8 +848,15 @@ class MainActivity : ComponentActivity() {
         tts?.stop()
     }
 
+    override fun onStop() {
+        super.onStop()
+        if (handoffInProgress) { cancelLocation(); message = word("rideInterrupted") }
+    }
+
     override fun onDestroy() {
-        recognizer?.destroy()
+        cancelAddressSearch()
+        cancelLocation()
+        stopListening()
         tts?.shutdown()
         super.onDestroy()
     }
