@@ -73,8 +73,11 @@ class MainActivity : ComponentActivity() {
     private val searchHandler = Handler(Looper.getMainLooper())
     private var pendingSearch: Runnable? = null
     private var searchThread: Thread? = null
-    private var searchProvider: (String) -> PlaceSearchProvider = { NominatimPlaceSearchProvider(it) }
-    private var searchEndpoint by mutableStateOf(ProviderEndpoints.SEARCH)
+    private var searchProvider: () -> PlaceSearchProvider = {
+        val home = places.firstOrNull { it.isHome }
+        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY,
+            home?.let { PlaceCandidate(it.address, it.latitude, it.longitude) })
+    }
     private var mapEndpoint by mutableStateOf(ProviderEndpoints.MAP)
     private var listening by mutableStateOf(false)
     private var speechTranscript by mutableStateOf("")
@@ -109,7 +112,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         store = LocalStore(this)
-        searchEndpoint = store.searchEndpoint()
         mapEndpoint = store.mapEndpoint()
         profile = store.profile()
         if (profile.language == "te") {
@@ -499,6 +501,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 })
+            Text(word("searchAttribution"), style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp))
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(vertical = 12.dp),
@@ -610,18 +615,12 @@ class MainActivity : ComponentActivity() {
         cancelAddressSearch()
         val query = searchQuery.trim()
         if (query.length < 3 || screen != "editor" || isDestroyed) return
-        if (!ProviderEndpoints.valid(searchEndpoint)) {
-            searching = false
-            message = word("invalidService")
-            return
-        }
         val generation = ++searchGeneration
         searching = true
         searchResults = emptyList()
         message = ""
-        val endpoint = searchEndpoint
         val language = locale().toLanguageTag()
-        val provider = searchProvider(endpoint)
+        val provider = searchProvider()
         searchThread = Thread {
             val result = runCatching { provider.search(query, language) }
             runOnUiThread {
@@ -631,7 +630,15 @@ class MainActivity : ComponentActivity() {
                 result.onSuccess {
                     searchResults = it
                     if (it.isEmpty()) message = word("noResults")
-                }.onFailure { message = word("offline") }
+                }.onFailure { error ->
+                    message = word(when ((error as? PlaceSearchException)?.reason) {
+                        PlaceSearchFailure.NOT_CONFIGURED -> "configured"
+                        PlaceSearchFailure.ACCESS_DENIED -> "searchAccessDenied"
+                        PlaceSearchFailure.QUOTA -> "searchQuota"
+                        PlaceSearchFailure.UNAVAILABLE, PlaceSearchFailure.INVALID_RESPONSE -> "searchUnavailable"
+                        null -> "offline"
+                    })
+                }
             }
         }.also { it.start() }
     }

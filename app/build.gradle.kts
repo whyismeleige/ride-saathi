@@ -1,8 +1,20 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// Local credentials are intentionally excluded from version control.
+val localConfig = Properties().apply {
+    val configFile = rootProject.file("local.properties")
+    if (configFile.exists()) configFile.inputStream().use { load(it) }
+}
+val olaMapsApiKey = providers.environmentVariable("OLA_MAPS_API_KEY")
+    .orElse(localConfig.getProperty("OLA_MAPS_API_KEY", "")).get().trim()
+val escapedOlaMapsApiKey = olaMapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
+    .replace("\n", "\\n").replace("\r", "\\r")
 
 android {
     namespace = "com.ridesaathi.app"
@@ -14,6 +26,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "OLA_MAPS_API_KEY", "\"$escapedOlaMapsApiKey\"")
         testInstrumentationRunner = "com.ridesaathi.app.PilotTestRunner"
     }
     buildTypes {
@@ -24,7 +37,7 @@ android {
         }
     }
     testBuildType = "qa"
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

@@ -1,5 +1,16 @@
 # V0 validation — 19 September 2026
 
+## Ola Maps integration — latest run
+
+- Debug and unsigned release APK builds passed, as did QA test compilation.
+- All 17 JVM tests and the map-preview JavaScript regression check passed.
+- Debug lint passed with 0 errors, 19 warnings, and 1 hint.
+- All 6 `OlaPlaceSearchProviderTest` contract tests passed on the connected Xiaomi Android 15 phone. Fixtures verify request encoding, Hindi language codes, Home location bias, no invented first-Home bias, missing-key handling, valid coordinates, duplicate results, zero results, malformed responses, and API errors. No live Ola API requests were made.
+- The full 21-test device suite stalled in the first existing UI test (`editingPlacePreservesLegacyVoiceAliases`), while Espresso waited for the main thread to become idle on Home. The QA process was stopped after the stall; that run is incomplete, not a passing UI check. The focused provider suite passed separately. The earlier device results below are historical, not verification of this integration.
+- No Ola API key was configured in the environment or `local.properties`, so live search accuracy and quota behavior remain unverified. Add a key using the README instructions, rebuild, and compare previously failing addresses before the pilot.
+- The regular installed app and its saved places were not replaced or cleared by this run; device tests use the separate `.qa` package.
+
+
 ## Passed
 
 - Debug APK build: `app/build/outputs/apk/debug/app-debug.apk`.

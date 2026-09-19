@@ -65,7 +65,11 @@ object Words {
                   "changeLanguage" to "Language",
                   "manage" to "Manage places",
                   "back" to "Back",
-                  "configured" to "Address search is not configured yet.",
+                  "configured" to "Address search is not set up yet. Ask the person who installed the app for help.",
+                  "searchAttribution" to "Search powered by Ola Maps",
+                  "searchAccessDenied" to "Address search could not connect to Ola Maps. Ask the person who installed the app for help.",
+                  "searchQuota" to "Address search has reached its usage limit. Try again later.",
+                  "searchUnavailable" to "Address search is temporarily unavailable. Please try again.",
                   "choosePlace" to "Choose a saved place",
                   "stop" to "Stop listening",
                   "wait" to "Please wait",
@@ -85,6 +89,10 @@ object Words {
           )
   private val hi =
           mapOf(
+                  "searchAttribution" to "पते की खोज: Ola Maps",
+                  "searchAccessDenied" to "Ola Maps से संपर्क नहीं हो सका। ऐप इंस्टॉल करने वाले व्यक्ति से मदद लें।",
+                  "searchQuota" to "पते की खोज की उपयोग सीमा पूरी हो गई है। बाद में फिर कोशिश करें।",
+                  "searchUnavailable" to "पते की खोज अभी उपलब्ध नहीं है। फिर कोशिश करें।",
                   "hello" to "नमस्ते",
                   "setupHint" to "आसान सफ़र के लिए छोटा सा सेटअप। परिवार का कोई सदस्य मदद कर सकता है।",
                   "voiceHint" to "चुनी गई जगह का नाम बोलें।",

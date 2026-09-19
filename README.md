@@ -236,15 +236,32 @@ flowchart TD
 
 ## Android implementation
 
-The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device preferences for the profile and saved places, OpenStreetMap address search and map preview for family setup, Android speech recognition and text-to-speech, and a native Uber ride-request link. It does not book or pay for a ride.
+The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device preferences for the profile and saved places, Ola Maps address search and an OpenStreetMap map preview for family setup, Android speech recognition and text-to-speech, and a native Uber ride-request link. It does not book or pay for a ride.
 
 ### Run it
 
 1. Install Android Studio with JDK 21 and Android SDK 36. Open this directory as a Gradle project.
-2. Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. No map API key or billing account is needed. The app needs internet for address search and map preview, location permission for pickup, and microphone permission for voice input.
+2. Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. Configure an Ola Maps API key as described below before searching for addresses. The app needs internet for address search and map preview, location permission for pickup, and microphone permission for voice input.
 3. Complete onboarding, search for and select Home, save it, add any other destinations, and verify the Uber handoff. On Android, Uber may show the destination after the rider taps **Set Pickup Location**.
 
-Address search uses the public Nominatim service; results are cached in memory, and requests from one device are limited to one per second. The public service's limit applies to **all devices combined**, so use it only for a few prototype testers. Place setup and ride confirmation share a bundled Leaflet 1.9.4 viewer that displays OpenStreetMap raster tiles, a destination pin, and attribution with normal WebView HTTP caching. Bundling the viewer avoids depending on the changing OpenStreetMap embed page, a JavaScript CDN, or WebGL support. Only the visible map tiles need a network connection. Places can be saved as soon as an address is selected, without a map-confirmation checkbox or waiting for tiles. Map failures and a 20-second loading timeout offer a retry. Existing custom HTTPS embed endpoints remain supported. Public services can refuse or become unavailable, so use appropriately provisioned services before a wider pilot. See the [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) and [tile policy](https://operations.osmfoundation.org/policies/tiles/).
+### Ola Maps address search
+
+Create credentials in the [Ola Maps developer portal](https://maps.olakrutrim.com/docs/auth), then add this to the ignored `local.properties` file (keep the existing `sdk.dir`):
+
+```properties
+OLA_MAPS_API_KEY=your_api_key
+```
+
+Alternatively supply the `OLA_MAPS_API_KEY` environment variable when building; it takes precedence. Rebuild and reinstall after setting or changing the key. Do not commit credentials. Builds without a key still work with existing saved places; new searches explain that setup is needed.
+
+Search uses Ola's [Autocomplete API](https://maps.olakrutrim.com/docs/places-apis/autocomplete-api), whose response includes address descriptions and coordinates. It makes one request after a 500 ms typing pause (minimum three characters), without extra Place Details requests or automatic retries. English/Hindi requests use Ola's language codes. Once Home is saved, its coordinates bias searches toward nearby results without restricting searches to that area. The first Home search has no location bias: include the city/locality in the query. Only results with valid coordinates can be selected. Missing credentials, rejected credentials, quota exhaustion, and service errors have separate messages. Existing saved places and custom map-preview endpoints are preserved; legacy Nominatim search endpoints are no longer used.
+
+The [current Ola rate card](https://maps.olakrutrim.com/pricing/details) includes 100,000 calls per API per month, effective 1 September 2026. Verify the allowance in your account and keep paid top-ups disabled for a free-only pilot. Usage is shared across all installations using a key. A key embedded in an Android APK is extractable: this direct integration is for the small pilot; use a backend with account-wide quotas and abuse controls before broad distribution. Do not embed OAuth client secrets in the app.
+
+Place setup and ride confirmation continue to use the bundled Leaflet 1.9.4 viewer with OpenStreetMap raster tiles, a destination pin, and attribution. Search attribution identifies Ola Maps separately. Places can be saved without waiting for map tiles. Map failures and a 20-second loading timeout offer a retry. The [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/) still applies to previews.
+
+Before relying on the new provider, compare 10–20 previously failing apartment, hospital, landmark, and full-address searches on the target phone; check the first five results and the selected pin. API contract tests use fake responses and do not establish real-world coverage or accuracy.
+
 
 Map loading regression checks: `node --test app/src/test/js/map-preview.test.cjs`. Android checks: `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug`. Device UI checks: `./gradlew :app:connectedQaAndroidTest` (uses a separate `.qa` app and requires an unlocked phone that allows test installations). Leaflet's license is included in `app/src/main/assets/map/LICENSE`.
 

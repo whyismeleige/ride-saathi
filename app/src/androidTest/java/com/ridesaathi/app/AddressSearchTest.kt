@@ -45,7 +45,7 @@ class AddressSearchTest {
     }
 
     private fun provider(search: (String) -> List<PlaceCandidate>) {
-        val factory: (String) -> PlaceSearchProvider = {
+        val factory: () -> PlaceSearchProvider = {
             object : PlaceSearchProvider {
                 override fun search(query: String, language: String): List<PlaceCandidate> {
                     queries.add(query)
@@ -138,6 +138,21 @@ class AddressSearchTest {
         waitForText(Words.get("en", "noResults"))
         assertEquals(listOf("Hyderabad", "Hyderabad"), queries.toList())
         ui.onNodeWithText("Searching addresses…").assertDoesNotExist()
+    }
+
+    @Test fun providerSetupAndQuotaErrorsHaveActionableMessages() {
+        var reason = PlaceSearchFailure.NOT_CONFIGURED
+        provider { throw PlaceSearchException(reason) }
+        addPlace()
+        type("Clinic")
+        waitForText(Words.get("en", "configured"))
+        reason = PlaceSearchFailure.ACCESS_DENIED
+        ui.onNodeWithContentDescription("Search address").performClick()
+        waitForText(Words.get("en", "searchAccessDenied"))
+        reason = PlaceSearchFailure.QUOTA
+        ui.onNodeWithContentDescription("Search address").performClick()
+        waitForText(Words.get("en", "searchQuota"))
+        ui.onNodeWithText(Words.get("en", "offline")).assertDoesNotExist()
     }
 
     @Test fun selectedAddressShowsMapAndCanBeSavedWithoutScrollingToSave() {

@@ -22,13 +22,7 @@ data class Profile(val name: String = "", val language: String = "en", val compl
 class LocalStore(context: Context) {
     private val prefs = context.getSharedPreferences("ride_saathi", Context.MODE_PRIVATE)
 
-    fun searchEndpoint(): String = prefs.getString("search_endpoint", ProviderEndpoints.SEARCH) ?: ProviderEndpoints.SEARCH
-
     fun mapEndpoint(): String = prefs.getString("map_endpoint", ProviderEndpoints.MAP) ?: ProviderEndpoints.MAP
-
-    fun saveProviderEndpoints(search: String, map: String) {
-        prefs.edit().putString("search_endpoint", search).putString("map_endpoint", map).apply()
-    }
 
     fun profile(): Profile = try {
         val data = JSONObject(prefs.getString("profile", "{}") ?: "{}")
