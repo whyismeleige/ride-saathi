@@ -236,13 +236,19 @@ flowchart TD
 
 ## Android implementation
 
-The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device preferences for the profile and saved places, Ola Maps address search and an OpenStreetMap map preview for family setup, Android speech recognition and text-to-speech, and a native Uber ride-request link. It does not book or pay for a ride.
+The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device preferences for the profile and saved places, Ola Maps address search and an OpenStreetMap map preview for family setup, Android speech recognition and text-to-speech, and a native Uber ride-request link. Android's share sheet can send a WhatsApp or Google Maps location link to Ride Saathi; the app shows the shared destination for confirmation before opening Uber. It does not book or pay for a ride.
 
 ### Run it
 
 1. Install Android Studio with JDK 21 and Android SDK 36. Open this directory as a Gradle project.
 2. Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. Configure an Ola Maps API key as described below before searching for addresses. The app needs internet for address search and map preview, location permission for pickup, and microphone permission for voice input.
 3. Complete onboarding, search for and select Home, save it, add any other destinations, and verify the Uber handoff. On Android, Uber may show the destination after the rider taps **Set Pickup Location**.
+
+### Shared Google Maps locations
+
+Share a place from Google Maps to Ride Saathi after completing setup. Coordinate links open destination confirmation directly. Short links (`maps.app.goo.gl` and `goo.gl/maps`) are expanded in the background over HTTPS with bounded redirects and timeouts. If a link only contains a place name/address, Ride Saathi searches that name using the configured Ola Maps provider, shows the original address alongside candidate destinations, and asks the rider to select the correct result before confirmation. Search results may differ from Google's pin; check the address and map. No destination is saved and Uber is not opened automatically.
+
+Short links need internet; address-only links also need the Ola key. Loading can be cancelled, and older responses cannot replace a newer share or saved-place selection. Network errors and links with no resolvable destination have separate messages. Live-location tracking and place-ID-only links without a readable address are not supported.
 
 ### Ola Maps address search
 

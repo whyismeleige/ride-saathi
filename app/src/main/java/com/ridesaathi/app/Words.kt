@@ -85,7 +85,15 @@ object Words {
                   "servicesSaved" to "Service URLs saved.",
                   "mapUnavailable" to "The map could not load. Check your connection and try again.",
                   "showMore" to "Show more",
-                  "showLess" to "Show less"
+                  "showLess" to "Show less",
+                  "sharedLocation" to "Shared location",
+                  "invalidSharedLocation" to "That message does not contain a supported location. Share a location or a Google Maps link with Ride Saathi.",
+                  "sharedLocationSetup" to "Finish Ride Saathi setup before using a shared location.",
+                  "resolvingSharedLocation" to "Opening shared location…",
+                  "selectSharedLocation" to "Select the shared destination",
+                  "sharedSearchHint" to "The link includes an address. Check these search results and select the correct place.",
+                  "sharedLocationOffline" to "Could not open the Google Maps link. Check your internet connection and share it again.",
+                  "sharedLocationUnresolved" to "Could not find a destination pin in that link. In Google Maps, select a place or drop a pin, then share it again."
           )
   private val hi =
           mapOf(
@@ -171,7 +179,15 @@ object Words {
                   "servicesSaved" to "सेवा URL सेव हो गए।",
                   "mapUnavailable" to "नक्शा नहीं खुला। इंटरनेट चेक करें और फिर कोशिश करें।",
                   "showMore" to "और देखें",
-                  "showLess" to "कम देखें"
+                  "showLess" to "कम देखें",
+                  "sharedLocation" to "शेयर की गई लोकेशन",
+                  "invalidSharedLocation" to "इस संदेश में लोकेशन नहीं मिली। Ride Saathi के साथ लोकेशन या Google Maps लिंक शेयर करें।",
+                  "sharedLocationSetup" to "शेयर की गई लोकेशन इस्तेमाल करने से पहले Ride Saathi का सेटअप पूरा करें।",
+                  "resolvingSharedLocation" to "शेयर की गई लोकेशन खोली जा रही है…",
+                  "selectSharedLocation" to "शेयर की गई मंज़िल चुनें",
+                  "sharedSearchHint" to "लिंक में पता मिला है। खोज के नतीजे जाँचें और सही जगह चुनें।",
+                  "sharedLocationOffline" to "Google Maps लिंक नहीं खुल सका। इंटरनेट कनेक्शन जाँचें और फिर से शेयर करें।",
+                  "sharedLocationUnresolved" to "इस लिंक में मंज़िल का पिन नहीं मिला। Google Maps में कोई जगह चुनें या पिन लगाएँ, फिर से शेयर करें।"
           )
   // Archived for future Telugu support; intentionally excluded from get().
   private val te =

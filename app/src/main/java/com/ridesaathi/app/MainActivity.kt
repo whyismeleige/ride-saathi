@@ -91,6 +91,12 @@ class MainActivity : ComponentActivity() {
     private var locationCancellation: CancellationTokenSource? = null
     private var locationGeneration = 0
     private var showDeleteConfirmation by mutableStateOf(false)
+    private var resolvingSharedLocation by mutableStateOf(false)
+    private var sharedLocationGeneration = 0
+    private var sharedLocationThread: Thread? = null
+    private val sharedLocationHandler = Handler(Looper.getMainLooper())
+    private var sharedLocationResolver = SharedLocationResolver()
+    private var sharedAddress by mutableStateOf("")
 
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (screen !in listOf("home", "confirm")) return@registerForActivityResult
@@ -128,6 +134,106 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) { App() }
             }
         }
+        handleSharedLocation(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleSharedLocation(intent)
+    }
+
+    private fun handleSharedLocation(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND || intent.type != "text/plain") return
+        cancelSharedLocation()
+        val sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+            ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+        if (SharedLocationParser.supportedUris(sharedText.orEmpty()).isEmpty()) {
+            message = word("invalidSharedLocation")
+            return
+        }
+        if (!profile.completed || places.none { it.isHome }) {
+            message = word("sharedLocationSetup")
+            return
+        }
+        cancelAddressSearch()
+        cancelRide()
+        val location = SharedLocationParser.parse(sharedText.orEmpty())
+        if (location != null) {
+            showSharedLocation(location)
+            return
+        }
+        resolvingSharedLocation = true
+        message = word("resolvingSharedLocation")
+        val generation = sharedLocationGeneration
+        val provider = searchProvider()
+        val language = profile.language
+        sharedLocationThread = Thread {
+            var failureKey = "sharedLocationUnresolved"
+            var addressMatches = emptyList<PlaceCandidate>()
+            var originalAddress = ""
+            val resolved = try {
+                when (val destination = sharedLocationResolver.resolve(sharedText.orEmpty())) {
+                    is SharedDestination.Coordinates -> destination.location
+                    is SharedDestination.Address -> {
+                        originalAddress = destination.sharedAddress
+                        addressMatches = provider.search(destination.query, language)
+                        null
+                    }
+                    null -> null
+                }
+            } catch (_: InterruptedException) {
+                return@Thread
+            } catch (error: PlaceSearchException) {
+                failureKey = when (error.reason) {
+                    PlaceSearchFailure.NOT_CONFIGURED -> "configured"
+                    PlaceSearchFailure.ACCESS_DENIED -> "searchAccessDenied"
+                    PlaceSearchFailure.QUOTA -> "searchQuota"
+                    else -> "sharedLocationOffline"
+                }
+                null
+            } catch (_: java.io.IOException) {
+                failureKey = "sharedLocationOffline"
+                null
+            }
+            sharedLocationHandler.post {
+                if (generation != sharedLocationGeneration || isDestroyed) return@post
+                sharedLocationThread = null
+                resolvingSharedLocation = false
+                if (resolved != null) showSharedLocation(resolved)
+                else if (addressMatches.isNotEmpty()) {
+                    sharedAddress = originalAddress
+                    choices = addressMatches.mapIndexed { index, place ->
+                        SavedPlace("shared-location-$index", place.address.substringBefore(','), emptyList(),
+                            place.address, place.latitude, place.longitude)
+                    }
+                    screen = "sharedChoices"
+                    message = ""
+                    speak(word("selectSharedLocation"))
+                } else message = word(failureKey)
+            }
+        }.also { it.start() }
+    }
+
+    private fun cancelSharedLocation() {
+        sharedLocationGeneration++
+        sharedLocationThread?.interrupt()
+        sharedLocationThread = null
+        sharedLocationHandler.removeCallbacksAndMessages(null)
+        if (resolvingSharedLocation) message = ""
+        resolvingSharedLocation = false
+    }
+
+    private fun showSharedLocation(location: SharedLocation) {
+        val coordinates = SharedLocationParser.formattedCoordinates(location)
+        choose(SavedPlace(
+            id = "shared-location",
+            name = word("sharedLocation"),
+            aliases = emptyList(),
+            address = location.label ?: coordinates,
+            latitude = location.latitude,
+            longitude = location.longitude
+        ))
     }
 
     private fun word(key: String) = Words.get(profile.language, key)
@@ -141,8 +247,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun navigateBack() {
+        cancelSharedLocation()
         when (screen) {
-            "confirm", "clarify" -> cancelRide()
+            "confirm", "clarify", "sharedChoices" -> cancelRide()
             "editor" -> {
                 cancelAddressSearch()
                 if (pickingAddress && draftPosition != null) {
@@ -158,7 +265,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun App() {
-        BackHandler(enabled = screen !in listOf("home", "onboarding")) {
+        BackHandler(enabled = resolvingSharedLocation || screen !in listOf("home", "onboarding")) {
             navigateBack()
         }
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
@@ -175,7 +282,7 @@ class MainActivity : ComponentActivity() {
                 })
                 Text(title, modifier = Modifier.weight(1f).padding(start = if (screen == "editor") 0.dp else 12.dp),
                     style = MaterialTheme.typography.titleMedium)
-                if (screen == "home") TextButton(onClick = { stopListening(); message = ""; screen = "settings" }) {
+                if (screen == "home") TextButton(onClick = { cancelSharedLocation(); stopListening(); message = ""; screen = "settings" }) {
                     Text(word("settings"))
                 }
                 else if (screen != "onboarding") TextButton(onClick = { navigateBack() }) {
@@ -193,15 +300,19 @@ class MainActivity : ComponentActivity() {
                         "onboarding" -> Onboarding()
                         "home" -> Home()
                         "confirm" -> Confirmation()
-                        "clarify" -> Clarification()
+                        "clarify", "sharedChoices" -> Clarification()
                     }
                 }
             }
             if (message.isNotBlank()) Surface(
-                color = if (handoffInProgress) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                color = if (handoffInProgress || resolvingSharedLocation) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
                 modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Text(message, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyLarge)
+                    if (resolvingSharedLocation) {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                        TextButton(onClick = { cancelSharedLocation() }) { Text(word("cancel")) }
+                    }
                     if (message == word("micDenied") || message == word("locationDenied")) {
                         TextButton(onClick = {
                             startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -561,8 +672,12 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Clarification() {
-        Text(word("ambiguous"), style = MaterialTheme.typography.headlineMedium)
-        SpeechTranscript()
+        Text(word(if (screen == "sharedChoices") "selectSharedLocation" else "ambiguous"),
+            style = MaterialTheme.typography.headlineMedium)
+        if (screen == "sharedChoices") {
+            Text(word("sharedSearchHint"))
+            Text(sharedAddress, style = MaterialTheme.typography.bodyLarge)
+        } else SpeechTranscript()
         choices.forEach { PlaceRow(it, false) }
         OutlinedButton(onClick = { cancelRide() }, modifier = Modifier.fillMaxWidth()) { Text(word("cancel")) }
     }
@@ -669,6 +784,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun choose(place: SavedPlace) {
+        cancelSharedLocation()
         stopListening()
         selected = place
         choices = emptyList()
@@ -678,6 +794,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun cancelRide() {
+        cancelSharedLocation()
         stopListening()
         tts?.stop()
         cancelLocation()
@@ -687,6 +804,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestMicrophone() {
+        cancelSharedLocation()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             startListening()
         } else microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
@@ -694,6 +812,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startListening() {
         if (screen !in listOf("home", "confirm") || handoffInProgress) return
+        cancelSharedLocation()
         if (!SpeechRecognizer.isRecognitionAvailable(this)) { message = word("voiceUnavailable"); return }
         tts?.stop()
         stopListening()
@@ -857,10 +976,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        cancelSharedLocation()
         if (handoffInProgress) { cancelLocation(); message = word("rideInterrupted") }
     }
 
     override fun onDestroy() {
+        cancelSharedLocation()
         cancelAddressSearch()
         cancelLocation()
         stopListening()
