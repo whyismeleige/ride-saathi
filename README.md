@@ -27,7 +27,7 @@
 - Stores Home
 - Stores saved destinations
 - Lets user tap destination
-- Lets user speak destination
+- Lets user speak saved or unsaved destinations
 - Understands Multi-lingual (English/Hindi)
 - Confirms destination
 - Gets current pickup location
@@ -44,7 +44,7 @@
 - Cancel Uber rides
 - Estimate fares
 - Estimate arrival time
-- Handle arbitrary destinations by voice
+- Interpret contextual destinations such as “near my daughter’s office”
 - Replace Uber
 
 ## System Architecture
@@ -178,7 +178,9 @@ flowchart TD
  C --> D[RESOLVING]
  D -- "found" --> E[CONFIRMING]
  D -- "ambiguous" --> F[CLARIFYING]
- D -- "no match" --> G[RETRY]
+ D -- "no match" --> G[SEARCH PLACES]
+ G --> L[CHOOSE SEARCH RESULT]
+ L --> E
  E --> H[YES]
  E --> I[NO] --> CANCEL/RETRY
  H --> J[READY]
@@ -197,7 +199,7 @@ flowchart TD
 | Internet unavailable                              | Show simple retry + saved places remain available                                                                                                                                                                                             |
 | Speech cannot be understood                       | Ask once again                                                                                                                                                                                                                                |
 | Speech repeatedly fails                           | Fall back to large saved-place buttons                                                                                                                                                                                                        |
-| No destination matches                            | Tell user and show saved destinations                                                                                                                                                                                                         |
+| No destination matches                            | Search online and ask the user to choose a destination                                                                                                                                                                                                         |
 | Two destinations match                            | Ask which one                                                                                                                                                                                                                                 |
 | User says "no"                                    | Return to destination selection                                                                                                                                                                                                               |
 | User changes mind                                 | Cancel flow                                                                                                                                                                                                                                   |
@@ -217,7 +219,7 @@ flowchart TD
 | Device lacks Uber                                 | Web/store fallback and tell them to install it                                                                                                                                                                                                |
 | Destination coordinates exist but address missing | Repair destination before handoff                                                                                                                                                                                                             |
 | User says something unrelated                     | Explain available destinations                                                                                                                                                                                                                |
-| User says a destination not saved                 | V0 says it isn't saved rather than guessing                                                                                                                                                                                                   |
+| User says a destination not saved                 | Search nearby places, show numbered choices, and confirm the selected address                                                                                                                                                                                                   |
 
 # V0 development roadmap
 
@@ -243,6 +245,16 @@ The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device pref
 1. Install Android Studio with JDK 21 and Android SDK 36. Open this directory as a Gradle project.
 2. Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. Configure an Ola Maps API key as described below before searching for addresses. The app needs internet for address search and map preview, location permission for pickup, and microphone permission for voice input.
 3. Complete onboarding, search for and select Home, save it, add any other destinations, and verify the Uber handoff. On Android, Uber may show the destination after the rider taps **Set Pickup Location**.
+
+### Unsaved destinations by voice
+
+Say a place name or a simple request such as “take me to Apollo Hospital” or “मुझे अपोलो अस्पताल जाना है”. Saved places are checked first. If none match, the app removes common surrounding travel phrases and searches Ola Maps. Include an area or city to narrow the results; complex contextual descriptions are not interpreted.
+
+Search prefers the current device location when permission is already available, accepting a location up to two minutes old and waiting at most three seconds. Otherwise it uses saved Home and labels that preference. It does not request location permission just for search or restrict results to the preferred area. Pickup still uses a separate fresh location request after confirmation.
+
+Results appear three at a time with full addresses and numbers. The app reads the choices, then listens once after playback finishes. Say “one”, “second one”, “दूसरा”, or a unique displayed place name; tapping works too. “More results” / “और नतीजे”, “search again” / “फिर खोजें”, “repeat options” / “फिर सुनाएँ”, and “cancel” / “रद्द करें” are supported. Search again accepts a replacement spoken query or typed text. If speech fails or no answer arrives, the list remains available with a microphone retry button.
+
+Even one result must be selected before the existing address/map confirmation. No search result is automatically saved. No/Back from confirmation restores the choices; Cancel ends the flow. Empty results offer refinement, connection/service failures offer retry, and credential/quota failures explain the problem. Leaving the app pauses pending search, and cancelled or older responses cannot replace a newer choice. A killed app returns to Home rather than resuming a ride.
 
 ### Shared Google Maps locations
 

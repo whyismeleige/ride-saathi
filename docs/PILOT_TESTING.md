@@ -36,7 +36,11 @@ Matching uses whole words, a small bilingual place vocabulary, and conservative 
 - Turn location off, try again, and use the location-settings recovery. Turn it back on afterward. Check airplane mode/no internet: saved-place selection should remain available and search/maps should explain the failure.
 - Confirm a destination and check the actual Uber pickup/drop-off screen. Uber must still ask the rider to choose and book the ride. Do not count opening Uber as a booked ride.
 - During listening or location lookup, press Back or leave the app. Return and check that no late callback opens Uber or changes the destination. Rapidly tap confirmation and verify only one handoff.
-- Try an unsaved place, two destinations in one sentence, silence, and an unclear reply. The user must be able to recover using the large place buttons.
+- Try an unsaved place in English and Hindi, including “take me to Apollo Hospital” and “मुझे अपोलो अस्पताल जाना है”. Check the query, the actual first three Ola results, addresses, and selected map pin. Include another city explicitly and verify results are not restricted to Home.
+- Verify options finish speaking before the microphone starts automatically. Say “second one” / “दूसरा”, select by touch during playback, remain silent, and give an ambiguous hospital name. Silence and unclear replies must leave the list usable without selecting a place.
+- Try More results, Repeat options, and Search again by voice and touch. Replace the query by speech and typed text. Select a singleton result, then use No/Back to return to the choices. Cancel should return Home; searched destinations must not appear in saved places.
+- With location permission unavailable or location disabled, check the Home-preference message and usable search. Leave during a search, then return and retry; no late response should change the screen. Check no results, internet loss, and recovery.
+- Try two saved destinations in one sentence. The app must still ask which saved place you mean without searching online.
 
 ## Observe each participant
 

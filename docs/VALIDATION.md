@@ -1,6 +1,15 @@
 # V0 validation — 19 September 2026
 
-## Ola Maps integration — latest run
+## Unsaved voice destinations — 20 September 2026
+
+- Final debug, unsigned release, QA application, and QA instrumentation APK builds passed.
+- All 42 JVM tests passed, including 8 new tests for destination-query extraction, bilingual numbered choices, ambiguous replies, result commands, and paging.
+- Debug lint passed with 0 errors, 19 warnings, and 1 hint; `git diff --check` passed.
+- Added 13 QA device tests covering saved-place precedence, selection/confirmation, Hindi, current-location/Home preference, query replacement, errors/retry, cancellation, lifecycle interruption, and utterance completion guards.
+- Device validation is incomplete. The first run passed the location-preference test, exposed a test-helper reflection error (fixed), then stalled between tests and was stopped. The corrected test APK compiles, but the next installation was rejected by the phone with `INSTALL_FAILED_USER_RESTRICTED` after it locked. Do not count this as a passing UI suite.
+- Live Ola relevance, real microphone/TTS timing, TalkBack, location fallback on the target phone, and the actual Uber screen remain hands-on checks. Automated searches use fixtures and do not call Ola or book rides. The regular app and its saved places were not replaced.
+
+## Ola Maps integration — previous run
 
 - Debug and unsigned release APK builds passed, as did QA test compilation.
 - All 17 JVM tests and the map-preview JavaScript regression check passed.
