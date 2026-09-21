@@ -1,5 +1,15 @@
 # V0 validation — 19 September 2026
 
+## Backend address-search migration — 21 September 2026
+
+- The Android app no longer calls `api.olamaps.io` or embeds `OLA_MAPS_API_KEY` in the APK. Address search now goes through the Ride Saathi FastAPI backend (`app/`), which proxies the server-side key.
+- All 36 backend contract tests pass: `cd backend && .venv/bin/python -m pytest tests -q`. They cover health, success/bias ordering/dedupe, validation (blank query, short query, out-of-range coordinates, word-only regions), missing key, upstream 401/403/429/5xx, timeouts, malformed JSON, zero results, malformed entries, stable response shapes, `X-Request-Id` echo, and privacy (query and coordinates never appear in error details or logs).
+- Live server smoke test passed on port 8011: `/health` ok; blank/short queries and out-of-range coordinates return 400 without reaching Ola; request logs contain only path, status, latency, and request id.
+- The Android provider test was renamed to `RideSaathiPlaceSearchProviderTest` and rewritten for the backend contract: `GET {base}/v1/places/autocomplete` with `q`, `language`, `lat`/`lng`, no `api_key` or `olamaps` content in the request, boundary filtering, blank-base URL → `NOT_CONFIGURED`, and no credential/URL/query leakage in exceptions. **Not yet run on a device.**
+- Device/build validation of the migrated Android provider is outstanding: JVM tests, debug/QA/release builds, lint, and the connected `qa` suite were not rerun for this change yet.
+
+## Ola Maps direct integration — previous run (legacy: app now uses the backend)
+
 ## Unsaved voice destinations — 20 September 2026
 
 - Final debug, unsigned release, QA application, and QA instrumentation APK builds passed.
@@ -14,7 +24,7 @@
 - Debug and unsigned release APK builds passed, as did QA test compilation.
 - All 17 JVM tests and the map-preview JavaScript regression check passed.
 - Debug lint passed with 0 errors, 19 warnings, and 1 hint.
-- All 6 `OlaPlaceSearchProviderTest` contract tests passed on the connected Xiaomi Android 15 phone. Fixtures verify request encoding, Hindi language codes, Home location bias, no invented first-Home bias, missing-key handling, valid coordinates, duplicate results, zero results, malformed responses, and API errors. No live Ola API requests were made.
+- All 6 `OlaPlaceSearchProviderTest` contract tests passed on the connected Xiaomi Android 15 phone (legacy direct-to-Ola integration, now replaced; see the rewritten `RideSaathiPlaceSearchProviderTest` above). Fixtures verify request encoding, Hindi language codes, Home location bias, no invented first-Home bias, missing-key handling, valid coordinates, duplicate results, zero results, malformed responses, and API errors. No live Ola API requests were made.
 - The full 21-test device suite stalled in the first existing UI test (`editingPlacePreservesLegacyVoiceAliases`), while Espresso waited for the main thread to become idle on Home. The QA process was stopped after the stall; that run is incomplete, not a passing UI check. The focused provider suite passed separately. The earlier device results below are historical, not verification of this integration.
 - No Ola API key was configured in the environment or `local.properties`, so live search accuracy and quota behavior remain unverified. Add a key using the README instructions, rebuild, and compare previously failing addresses before the pilot.
 - The regular installed app and its saved places were not replaced or cleared by this run; device tests use the separate `.qa` package.

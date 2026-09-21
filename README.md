@@ -238,17 +238,17 @@ flowchart TD
 
 ## Android implementation
 
-The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device preferences for the profile and saved places, Ola Maps address search and an OpenStreetMap map preview for family setup, Android speech recognition and text-to-speech, and a native Uber ride-request link. Android's share sheet can send a WhatsApp or Google Maps location link to Ride Saathi; the app shows the shared destination for confirmation before opening Uber. It does not book or pay for a ride.
+The V0 Android app is in `app/`. It uses Kotlin, Jetpack Compose, on-device preferences for the profile and saved places, address search through the Ride Saathi backend (which calls Ola Maps on the server), an OpenStreetMap map preview for family setup, Android speech recognition and text-to-speech, and a native Uber ride-request link. Android's share sheet can send a WhatsApp or Google Maps location link to Ride Saathi; the app shows the shared destination for confirmation before opening Uber. It does not book or pay for a ride.
 
 ### Run it
 
 1. Install Android Studio with JDK 21 and Android SDK 36. Open this directory as a Gradle project.
-2. Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. Configure an Ola Maps API key as described below before searching for addresses. The app needs internet for address search and map preview, location permission for nearby search and pickup, and microphone permission for voice input.
+2. Run the Ride Saathi backend and point the app at it before searching for addresses. The `debug` build defaults to `API_BASE_URL=http://10.0.2.2:8000`, which is how an Android emulator reaches the host machine's localhost; see [Address search and the Ride Saathi backend](#address-search-and-the-ride-saathi-backend). Build with `./gradlew assembleDebug` and install `app/build/outputs/apk/debug/app-debug.apk` on a physical Android phone with Google Play services, a speech recognition service, and Uber. The app needs internet for address search and map preview, location permission for nearby search and pickup, and microphone permission for voice input.
 3. Complete onboarding, search for and select Home, save it, add any other destinations, and verify the Uber handoff. On Android, Uber may show the destination after the rider taps **Set Pickup Location**.
 
 ### Unsaved destinations by voice
 
-Say a place name or a simple request such as “take me to Apollo Hospital” or “मुझे अपोलो अस्पताल जाना है”. Saved places are checked first. If none match, the app removes common surrounding travel phrases and searches Ola Maps. Include an area or city to narrow the results; complex contextual descriptions are not interpreted.
+Say a place name or a simple request such as “take me to Apollo Hospital” or “मुझे अपोलो अस्पताल जाना है”. Saved places are checked first. If none match, the app removes common surrounding travel phrases and searches through the Ride Saathi backend.
 
 Search is restricted to a 50 km straight-line radius around the current device location. It requests location permission when needed, accepts fixes up to two minutes old with reported accuracy within 5 km, and waits at most eight seconds. Searches never fall back to saved Home or nationwide results when location is unavailable; the app offers location settings and retry instead. The same boundary applies to destination search, saved-place address search (including the first Home), and searches for shared address links. Explicit saved destinations and shared coordinate pins still open confirmation directly. Pickup uses a separate fresh location request after confirmation.
 
@@ -258,30 +258,67 @@ Even one result must be selected before the existing address/map confirmation. N
 
 ### Shared Google Maps locations
 
-Share a place from Google Maps to Ride Saathi after completing setup. Coordinate links open destination confirmation directly. Short links (`maps.app.goo.gl` and `goo.gl/maps`) are expanded in the background over HTTPS with bounded redirects and timeouts. If a link only contains a place name/address, Ride Saathi searches that name using the configured Ola Maps provider, shows the original address alongside candidate destinations, and asks the rider to select the correct result before confirmation. Search results may differ from Google's pin; check the address and map. No destination is saved and Uber is not opened automatically.
+Share a place from Google Maps to Ride Saathi after completing setup. Coordinate links open destination confirmation directly. Short links (`maps.app.goo.gl` and `goo.gl/maps`) are expanded in the background over HTTPS with bounded redirects and timeouts. If a link only contains a place name/address, Ride Saathi searches that name through the Ride Saathi backend, shows the original address alongside candidate destinations, and asks the rider to select the correct result before confirmation. Search results may differ from Google's pin; check the address and map. No destination is saved and Uber is not opened automatically.
 
-Short links need internet; address-only links also need the Ola key. Loading can be cancelled, and older responses cannot replace a newer share or saved-place selection. Network errors and links with no resolvable destination have separate messages. Live-location tracking and place-ID-only links without a readable address are not supported.
+Short links need internet; address-only links also need the Ride Saathi backend running and configured. Loading can be cancelled, and older responses cannot replace a newer share or saved-place selection. Network errors and links with no resolvable destination have separate messages. Live-location tracking and place-ID-only links without a readable address are not supported.
 
-### Ola Maps address search
+### Address search and the Ride Saathi backend
 
-Create credentials in the [Ola Maps developer portal](https://maps.olakrutrim.com/docs/auth), then add this to the ignored `local.properties` file (keep the existing `sdk.dir`):
-
-```properties
-OLA_MAPS_API_KEY=your_api_key
+```
+Android phone
+   │  HTTPS  GET /v1/places/autocomplete?q=…&language=…&lat=…&lng=…
+   ▼
+Ride Saathi FastAPI backend   (secret: OLA_MAPS_API_KEY lives here, only here)
+   │  server-side  https://api.olamaps.io/places/v1/autocomplete
+   ▼
+Ola Maps API
 ```
 
-Alternatively supply the `OLA_MAPS_API_KEY` environment variable when building; it takes precedence. Rebuild and reinstall after setting or changing the key. Do not commit credentials. Builds without a key still work with existing saved places; new searches explain that setup is needed.
+The Ola Maps API key must never appear in the Android APK. A key compiled into an APK can be extracted, so the Android app no longer talks to `api.olamaps.io` at all. Instead it calls the backend's `GET /v1/places/autocomplete` with the query, language, and optional device coordinates, and the backend calls Ola Maps with the server-side key. The APK only contains `API_BASE_URL`, which is not a secret.
 
-Search uses Ola's [Autocomplete API](https://maps.olakrutrim.com/docs/places-apis/autocomplete-api), whose response includes address descriptions and coordinates. It makes one request after a 500 ms typing pause (minimum three characters), without extra Place Details requests or automatic retries. English, Hindi, and Telugu requests use the selected language code. Requests use the current device coordinates, `radius=50000`, and `strictbounds=true`, following the [Ola OpenAPI schema](https://maps.olakrutrim.com/openapi/ola-maps-apis-oas.yaml). The app also checks every returned coordinate against the 50 km radius and preserves relevance order for the remaining results. No nearby matches produces a local no-results message; it never widens the search, even if another city is typed. Missing credentials, rejected credentials, quota exhaustion, and service errors have separate messages. Existing saved places and custom map-preview endpoints are preserved; legacy Nominatim search endpoints are no longer used.
+**Backend setup** (see `backend/README.md` for full details):
 
-The [current Ola rate card](https://maps.olakrutrim.com/pricing/details) includes 100,000 calls per API per month, effective 1 September 2026. Verify the allowance in your account and keep paid top-ups disabled for a free-only pilot. Usage is shared across all installations using a key. A key embedded in an Android APK is extractable: this direct integration is for the small pilot; use a backend with account-wide quotas and abuse controls before broad distribution. Do not embed OAuth client secrets in the app.
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+# put your real Ola Maps key in backend/.env as OLA_MAPS_API_KEY=…
+uvicorn app.main:app --reload --env-file .env
+```
+
+`backend/.env` is ignored by Git; never commit a real key. The backend reads `OLA_MAPS_API_KEY`, `ENVIRONMENT`, and `PORT` (optional) from the environment, and `PORT` is honored automatically by the included Dockerfile for platforms such as Railway, Render, Cloud Run, or Fly.io.
+
+**Android `API_BASE_URL`** is wired per build type in `app/build.gradle.kts`:
+
+| Build type | Default `API_BASE_URL`              | Notes                                        |
+| ---------- | ----------------------------------- | -------------------------------------------- |
+| `debug`    | `http://10.0.2.2:8000`              | Emulator → host machine localhost.           |
+| `qa`       | `http://10.0.2.2:8000`              | Point at a staging backend when one exists. |
+| `release`  | *(blank → `NOT_CONFIGURED`)*        | Must supply a production HTTPS URL.          |
+
+Override it for a build with the `API_BASE_URL` environment variable or (for Android Studio) a line in the ignored `local.properties`:
+
+```properties
+sdk.dir=/path/to/sdk
+API_BASE_URL=http://192.168.1.50:8000
+```
+
+Android emulator networking: the emulator’s localhost is the emulator itself, not your computer. Use `10.0.2.2` to reach the host machine's `localhost` (this is the debug default). For a physical device, the phone cannot see the host's `localhost`; point `API_BASE_URL` at the developer machine's LAN IP (e.g. `http://192.168.1.50:8000`) while the backend runs with `--host 0.0.0.0`. Production must use HTTPS.
+
+Development-only plain HTTP is permitted only in the `debug` and `qa` builds via a build-variant network security configuration. Release builds are HTTPS-only and do not ship that configuration.
+
+Search still uses Ola's [Autocomplete API](https://maps.olakrutrim.com/docs/places-apis/autocomplete-api) on the server. The backend replicates the previous request behavior — one request, no automatic retries, short timeouts — sending `input`, `language`, `api_key`, and, when a bias is provided, `location`, `radius=50000`, and `strictbounds=true`. It validates query length, language, and coordinate pairing before calling Ola, drops malformed predictions, deduplicates, and preserves Ola’s ordering. The app still checks every returned coordinate against the 50 km radius, requires a current location before searching, and keeps all its distinct messages for missing configuration, denied access, quota, service failure, and no local matches. Existing saved places and custom map-preview endpoints are preserved.
+
+The [current Ola rate card](https://maps.olakrutrim.com/pricing/details) includes 100,000 calls per API per month, effective 1 September 2026. Verify the allowance in your account and keep paid top-ups disabled for a free-only pilot. With the backend, usage is no longer shared into an extractable in-APK key and can later be rate-limited or attested (Play Integrity / device verification) without changing the app's interface. Do not embed OAuth client secrets in the app.
 
 Place setup and ride confirmation continue to use the bundled Leaflet 1.9.4 viewer with OpenStreetMap raster tiles, a destination pin, and attribution. Search attribution identifies Ola Maps separately. Places can be saved without waiting for map tiles. Map failures and a 20-second loading timeout offer a retry. The [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/) still applies to previews.
 
 Before relying on the new provider, compare 10–20 previously failing apartment, hospital, landmark, and full-address searches on the target phone; check the first five results and the selected pin. API contract tests use fake responses and do not establish real-world coverage or accuracy.
 
 
-Map loading regression checks: `node --test app/src/test/js/map-preview.test.cjs`. Android checks: `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug`. Device UI checks: `./gradlew :app:connectedQaAndroidTest` (uses a separate `.qa` app and requires an unlocked phone that allows test installations). Leaflet's license is included in `app/src/main/assets/map/LICENSE`.
+Map loading regression checks: `node --test app/src/test/js/map-preview.test.cjs`. Backend checks: `cd backend && .venv/bin/pytest -q`. Android checks: `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug`. Device UI checks: `./gradlew :app:connectedQaAndroidTest` (uses a separate `.qa` app and requires an unlocked phone that allows test installations). Leaflet's license is included in `app/src/main/assets/map/LICENSE`.
 
 Saved places remain on the device. Clearing app data removes them. The prototype has no family account, cloud sync, fare information, ride type selection, or ride status. Before the elderly-user pilot, validate English, Hindi, and Telugu speech and spoken output, screen reader behavior, map search, and the final Uber screen on the actual target phones. English, Hindi, and Telugu are available during onboarding and in the Settings language dropdown. The selected language is saved and used for app text, speech recognition, and spoken prompts.
 

@@ -15,8 +15,10 @@ enum class PlaceSearchFailure { NOT_CONFIGURED, ACCESS_DENIED, QUOTA, UNAVAILABL
 
 class PlaceSearchException(val reason: PlaceSearchFailure) : java.io.IOException(reason.name)
 
+data class HttpResult(val statusCode: Int, val body: String)
+
 /** No URLs, API keys, response bodies, or user queries are included in failures. */
-internal fun olaGet(url: String): String {
+internal fun httpGet(url: String): HttpResult {
     val connection = URL(url).openConnection() as HttpURLConnection
     try {
         connection.connectTimeout = 8_000
@@ -25,64 +27,85 @@ internal fun olaGet(url: String): String {
         connection.instanceFollowRedirects = false
         connection.setRequestProperty("Accept", "application/json")
         connection.setRequestProperty("X-Request-Id", java.util.UUID.randomUUID().toString())
-        when (connection.responseCode) {
-            200 -> return connection.inputStream.bufferedReader().use { it.readText() }
-            401, 403 -> throw PlaceSearchException(PlaceSearchFailure.ACCESS_DENIED)
-            429 -> throw PlaceSearchException(PlaceSearchFailure.QUOTA)
-            else -> throw PlaceSearchException(PlaceSearchFailure.UNAVAILABLE)
-        }
+        val status = connection.responseCode
+        val body = if (status in 200..299) connection.inputStream.bufferedReader().use { it.readText() }
+            else connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        return HttpResult(status, body)
     } finally {
         connection.disconnect()
     }
 }
 
-/** Ola autocomplete includes geometry; no per-suggestion Details requests are needed. */
-class OlaPlaceSearchProvider(
-    private val apiKey: String,
+/**
+ * Talks only to the Ride Saathi backend, which holds the upstream provider
+ * credentials. The APK never learns which upstream provider the server uses.
+ */
+class RideSaathiPlaceSearchProvider(
+    private val baseUrl: String,
     private val center: PlaceCandidate? = null,
-    private val get: (String) -> String = ::olaGet
+    private val get: (String) -> HttpResult = ::httpGet
 ) : PlaceSearchProvider {
     override fun search(query: String, language: String): List<PlaceCandidate> {
-        if (apiKey.isBlank()) throw PlaceSearchException(PlaceSearchFailure.NOT_CONFIGURED)
+        val base = baseUrl.trim().trimEnd('/')
+        if (base.isEmpty()) throw PlaceSearchException(PlaceSearchFailure.NOT_CONFIGURED)
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Search cancelled")
-        if (query.trim().length < 3) return emptyList()
+        val trimmed = query.trim()
+        if (trimmed.length < 3) return emptyList()
         val origin = center?.takeIf(SearchBoundary::valid)
             ?: throw PlaceSearchException(PlaceSearchFailure.LOCATION_REQUIRED)
-        val url = Uri.parse(ProviderEndpoints.SEARCH).buildUpon()
-            .appendQueryParameter("input", query.trim())
+        val url = Uri.parse("$base/v1/places/autocomplete").buildUpon()
+            .appendQueryParameter("q", trimmed)
             .appendQueryParameter("language", language.substringBefore('-').lowercase(Locale.ROOT))
-            .appendQueryParameter("api_key", apiKey.trim())
-        url.appendQueryParameter("location", "${origin.latitude},${origin.longitude}")
-        url.appendQueryParameter("radius", SearchBoundary.RADIUS_METERS.toString())
-        url.appendQueryParameter("strictbounds", "true")
-        val body = get(url.build().toString())
+            .appendQueryParameter("lat", origin.latitude.toString())
+            .appendQueryParameter("lng", origin.longitude.toString())
+            .build().toString()
+        val result = get(url)
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Search cancelled")
-        try {
-            val response = org.json.JSONObject(body)
-            when (response.optString("status").lowercase(Locale.ROOT)) {
-                "ok", "zero_results" -> Unit
-                "over_query_limit" -> throw PlaceSearchException(PlaceSearchFailure.QUOTA)
-                "request_denied" -> throw PlaceSearchException(PlaceSearchFailure.ACCESS_DENIED)
-                else -> throw PlaceSearchException(PlaceSearchFailure.UNAVAILABLE)
-            }
-            val results = response.optJSONArray("predictions")
+        return interpret(result)
+    }
+
+    private fun interpret(result: HttpResult): List<PlaceCandidate> {
+        if (result.statusCode !in 200..299) {
+            throw PlaceSearchException(reasonForFailure(result))
+        }
+        return try {
+            val response = org.json.JSONObject(result.body)
+            val places = response.optJSONArray("places")
                 ?: throw PlaceSearchException(PlaceSearchFailure.INVALID_RESPONSE)
-            val candidates = (0 until results.length()).mapNotNull { index ->
-                val item = results.optJSONObject(index) ?: return@mapNotNull null
-                val address = item.optString("description").trim()
-                val location = item.optJSONObject("geometry")?.optJSONObject("location")
-                    ?: return@mapNotNull null
-                val lat = location.optDouble("lat", Double.NaN)
-                val lon = location.optDouble("lng", Double.NaN)
-                if (address.isBlank() || address == "null" || !validCoordinates(lat, lon)) null
-                else PlaceCandidate(address, lat, lon)
+            val candidates = (0 until places.length()).mapNotNull { index ->
+                val item = places.optJSONObject(index) ?: return@mapNotNull null
+                val address = item.optString("address").trim()
+                val latitude = item.optDouble("latitude", Double.NaN)
+                val longitude = item.optDouble("longitude", Double.NaN)
+                if (address.isBlank() || address == "null" || !validCoordinates(latitude, longitude)) null
+                else PlaceCandidate(address, latitude, longitude)
             }.distinct()
-            if (results.length() > 0 && candidates.isEmpty())
+            if (places.length() > 0 && candidates.isEmpty())
                 throw PlaceSearchException(PlaceSearchFailure.INVALID_RESPONSE)
-            // Enforce the boundary locally even if the service returns out-of-area suggestions.
-            return SearchBoundary.filter(origin, candidates)
+            // Enforce the boundary locally even if the backend returns out-of-area suggestions.
+            SearchBoundary.filter(requireNotNull(center), candidates)
         } catch (_: org.json.JSONException) {
             throw PlaceSearchException(PlaceSearchFailure.INVALID_RESPONSE)
+        }
+    }
+
+    private fun reasonForFailure(result: HttpResult): PlaceSearchFailure {
+        val code = try {
+            org.json.JSONObject(result.body).optJSONObject("error")?.optString("code")
+        } catch (_: org.json.JSONException) {
+            null
+        }
+        return when (code) {
+            "NOT_CONFIGURED" -> PlaceSearchFailure.NOT_CONFIGURED
+            "ACCESS_DENIED" -> PlaceSearchFailure.ACCESS_DENIED
+            "QUOTA" -> PlaceSearchFailure.QUOTA
+            "UNAVAILABLE" -> PlaceSearchFailure.UNAVAILABLE
+            "INVALID_RESPONSE" -> PlaceSearchFailure.INVALID_RESPONSE
+            else -> when (result.statusCode) {
+                in 401..403 -> PlaceSearchFailure.ACCESS_DENIED
+                429 -> PlaceSearchFailure.QUOTA
+                else -> PlaceSearchFailure.UNAVAILABLE
+            }
         }
     }
 
@@ -109,7 +132,6 @@ class OpenStreetMapPreviewProvider(private val endpoint: String) : MapPreviewPro
 }
 
 object ProviderEndpoints {
-    const val SEARCH = "https://api.olamaps.io/places/v1/autocomplete"
     const val MAP = "https://www.openstreetmap.org/export/embed.html"
 
     fun valid(value: String): Boolean {

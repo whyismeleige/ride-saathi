@@ -22,6 +22,13 @@ externalNativeBuild/
 *.sqlite
 *.sqlite3
 
+# Python backend
+backend/.venv/
+backend/.env
+__pycache__/
+*.pyc
+.pytest_cache/
+
 # OS-generated files
 .DS_Store
 Thumbs.db

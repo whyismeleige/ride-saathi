@@ -6,15 +6,23 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Local credentials are intentionally excluded from version control.
+// Local build configuration is intentionally excluded from version control.
 val localConfig = Properties().apply {
     val configFile = rootProject.file("local.properties")
     if (configFile.exists()) configFile.inputStream().use { load(it) }
 }
-val olaMapsApiKey = providers.environmentVariable("OLA_MAPS_API_KEY")
-    .orElse(localConfig.getProperty("OLA_MAPS_API_KEY", "")).get().trim()
-val escapedOlaMapsApiKey = olaMapsApiKey.replace("\\", "\\\\").replace("\"", "\\\"")
-    .replace("\n", "\\n").replace("\r", "\\r")
+
+// API_BASE_URL is NOT a secret: it can safely live inside the APK. The Ola Maps
+// API key never enters this Gradle file or any APK; it exists only on the backend.
+// Resolution order: API_BASE_URL environment variable, then local.properties,
+// then the per-build-type fallback below.
+fun apiBaseUrl(fallback: String): String =
+    providers.environmentVariable("API_BASE_URL")
+        .orElse(providers.provider { localConfig.getProperty("API_BASE_URL", fallback) })
+        .get().trim()
+
+fun escaped(value: String): String =
+    value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
 
 android {
     namespace = "com.ridesaathi.app"
@@ -26,14 +34,27 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
-        buildConfigField("String", "OLA_MAPS_API_KEY", "\"$escapedOlaMapsApiKey\"")
+        buildConfigField("String", "API_BASE_URL", "\"${escaped(apiBaseUrl(""))}\"")
         testInstrumentationRunner = "com.ridesaathi.app.PilotTestRunner"
     }
     buildTypes {
+        getByName("debug") {
+            // Android emulators reach the host machine's localhost at 10.0.2.2.
+            buildConfigField("String", "API_BASE_URL", "\"${escaped(apiBaseUrl("http://10.0.2.2:8000"))}\"")
+        }
         create("qa") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".qa"
             matchingFallbacks += listOf("debug")
+            // Point this at the staging backend (or a local dev backend) via
+            // API_BASE_URL before building a QA/dev APK.
+            buildConfigField("String", "API_BASE_URL", "\"${escaped(apiBaseUrl("http://10.0.2.2:8000"))}\"")
+        }
+        getByName("release") {
+            // Release expects a production HTTPS API_BASE_URL to be supplied at
+            // build time. A blank value keeps the APK unconfigured (NOT_CONFIGURED)
+            // rather than shipping a placeholder endpoint.
+            buildConfigField("String", "API_BASE_URL", "\"${escaped(apiBaseUrl(""))}\"")
         }
     }
     testBuildType = "qa"

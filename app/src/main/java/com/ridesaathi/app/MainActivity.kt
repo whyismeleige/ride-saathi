@@ -76,14 +76,14 @@ class MainActivity : ComponentActivity() {
     private var searchThread: Thread? = null
     private var cancelAddressLocation: (() -> Unit)? = null
     private var searchProvider: (PlaceCandidate) -> PlaceSearchProvider = { center ->
-        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY, center)
+        RideSaathiPlaceSearchProvider(BuildConfig.API_BASE_URL, center)
     }
     private var destinationSearch by mutableStateOf<DestinationSearchState?>(null)
     private var destinationSearchGeneration = 0
     private var destinationSearchThread: Thread? = null
     private var cancelSearchLocation: (() -> Unit)? = null
     private var destinationSearchProvider: (PlaceCandidate) -> PlaceSearchProvider = { center ->
-        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY, center)
+        RideSaathiPlaceSearchProvider(BuildConfig.API_BASE_URL, center)
     }
     private var destinationLocationLookup: ((PlaceCandidate?) -> Unit) -> (() -> Unit) = { callback ->
         lookupSearchLocation(callback)

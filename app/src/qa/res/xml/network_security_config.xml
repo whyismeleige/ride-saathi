@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- QA/debug builds may talk to a local or staging backend over plain HTTP.
+     Never present in release builds, which remain HTTPS-only. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

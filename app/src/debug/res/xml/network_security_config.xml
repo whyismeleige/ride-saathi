@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Development-only build: permits plain-HTTP traffic to a local Ride Saathi
+     backend (the Android emulator reaches the host machine at 10.0.2.2, and a
+     physical device can use the dev machine's LAN address). This file is only
+     in the debug source set and never ships in release builds, which stay
+     HTTPS-only. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
