@@ -12,7 +12,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 
-/** A best-effort search preference, independent of the fresh pickup location request. */
+/** Recent device position for bounded search, independent of the fresh pickup location request. */
 class SearchLocationLookup(private val context: Context) {
     fun lookup(callback: (PlaceCandidate?) -> Unit): () -> Unit {
         val granted = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -29,16 +29,18 @@ class SearchLocationLookup(private val context: Context) {
             token.cancel()
             callback(candidate)
         }
-        timeout = Runnable { finish(null) }.also { handler.postDelayed(it, 3_000) }
+        timeout = Runnable { finish(null) }.also { handler.postDelayed(it, 8_000) }
         try {
             val request = CurrentLocationRequest.Builder()
                 .setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
-                .setMaxUpdateAgeMillis(120_000).setDurationMillis(3_000).build()
+                .setMaxUpdateAgeMillis(120_000).setDurationMillis(8_000).build()
             LocationServices.getFusedLocationProviderClient(context).getCurrentLocation(request, token.token)
                 .addOnSuccessListener { location ->
                     val age = location?.let { (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000 }
                     finish(location?.takeIf {
-                        age != null && age in 0..120_000 && it.latitude.isFinite() && it.longitude.isFinite() &&
+                        age != null && age in 0..120_000 && it.hasAccuracy() &&
+                            it.accuracy.isFinite() && it.accuracy in 0f..5_000f &&
+                            it.latitude.isFinite() && it.longitude.isFinite() &&
                             it.latitude in -90.0..90.0 && it.longitude in -180.0..180.0
                     }?.let { PlaceCandidate("", it.latitude, it.longitude) })
                 }.addOnFailureListener { finish(null) }

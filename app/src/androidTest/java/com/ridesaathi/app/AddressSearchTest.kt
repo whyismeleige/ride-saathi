@@ -36,6 +36,15 @@ class AddressSearchTest {
             savePlaces(listOf(home))
         }
         scenario = ActivityScenario.launch(MainActivity::class.java)
+        val lookup: ((PlaceCandidate?) -> Unit) -> (() -> Unit) = { callback ->
+            callback(PlaceCandidate("", 17.385, 78.4867)); {}
+        }
+        scenario.onActivity { activity ->
+            MainActivity::class.java.getDeclaredField("destinationLocationLookup").apply {
+                isAccessible = true
+                set(activity, lookup)
+            }
+        }
         ui.onNodeWithText("Settings").performClick()
     }
 
@@ -45,7 +54,7 @@ class AddressSearchTest {
     }
 
     private fun provider(search: (String) -> List<PlaceCandidate>) {
-        val factory: () -> PlaceSearchProvider = {
+        val factory: (PlaceCandidate) -> PlaceSearchProvider = {
             object : PlaceSearchProvider {
                 override fun search(query: String, language: String): List<PlaceCandidate> {
                     queries.add(query)
@@ -66,6 +75,48 @@ class AddressSearchTest {
     private fun type(query: String) = address().performClick().performTextReplacement(query)
     private fun waitForText(text: String) {
         ui.waitUntil(5_000) { ui.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test fun addressSearchUsesCurrentLocationAndRejectsDistantResults() {
+        val current = PlaceCandidate("", 19.076, 72.8777)
+        val local = PlaceCandidate("Clinic, Mumbai", 19.08, 72.89)
+        val lookup: ((PlaceCandidate?) -> Unit) -> (() -> Unit) = { callback -> callback(current); {} }
+        val factory: (PlaceCandidate) -> PlaceSearchProvider = { center ->
+            assertEquals(current, center)
+            object : PlaceSearchProvider {
+                override fun search(query: String, language: String) = listOf(
+                    PlaceCandidate("Clinic, Hyderabad", 17.4, 78.5), local,
+                    PlaceCandidate("Clinic, Delhi", 28.61, 77.21))
+            }
+        }
+        scenario.onActivity { activity ->
+            MainActivity::class.java.getDeclaredField("destinationLocationLookup").apply {
+                isAccessible = true; set(activity, lookup)
+            }
+            MainActivity::class.java.getDeclaredField("searchProvider").apply {
+                isAccessible = true; set(activity, factory)
+            }
+        }
+        addPlace()
+        type("Clinic")
+        waitForText(local.address)
+        ui.onNodeWithText("Clinic, Hyderabad").assertDoesNotExist()
+        ui.onNodeWithText("Clinic, Delhi").assertDoesNotExist()
+    }
+
+    @Test fun missingLocationDoesNotStartAddressSearch() {
+        val lookup: ((PlaceCandidate?) -> Unit) -> (() -> Unit) = { callback -> callback(null); {} }
+        scenario.onActivity { activity ->
+            MainActivity::class.java.getDeclaredField("destinationLocationLookup").apply {
+                isAccessible = true; set(activity, lookup)
+            }
+        }
+        provider { error("Search must wait for a current location") }
+        addPlace()
+        type("Clinic")
+        waitForText(Words.get("en", "searchLocationRequired"))
+        assertTrue(queries.isEmpty())
+        ui.onNodeWithText(Words.get("en", "retry")).assertExists()
     }
 
     @Test fun typingDebouncesAndShowsLoadingThenSelectableResults() {

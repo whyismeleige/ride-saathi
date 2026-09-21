@@ -74,20 +74,19 @@ class MainActivity : ComponentActivity() {
     private val searchHandler = Handler(Looper.getMainLooper())
     private var pendingSearch: Runnable? = null
     private var searchThread: Thread? = null
-    private var searchProvider: () -> PlaceSearchProvider = {
-        val home = places.firstOrNull { it.isHome }
-        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY,
-            home?.let { PlaceCandidate(it.address, it.latitude, it.longitude) })
+    private var cancelAddressLocation: (() -> Unit)? = null
+    private var searchProvider: (PlaceCandidate) -> PlaceSearchProvider = { center ->
+        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY, center)
     }
     private var destinationSearch by mutableStateOf<DestinationSearchState?>(null)
     private var destinationSearchGeneration = 0
     private var destinationSearchThread: Thread? = null
     private var cancelSearchLocation: (() -> Unit)? = null
-    private var destinationSearchProvider: (PlaceCandidate?) -> PlaceSearchProvider = { bias ->
-        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY, bias)
+    private var destinationSearchProvider: (PlaceCandidate) -> PlaceSearchProvider = { center ->
+        OlaPlaceSearchProvider(BuildConfig.OLA_MAPS_API_KEY, center)
     }
     private var destinationLocationLookup: ((PlaceCandidate?) -> Unit) -> (() -> Unit) = { callback ->
-        SearchLocationLookup(this).lookup(callback)
+        lookupSearchLocation(callback)
     }
     private var searchSelection = false
     private var foreground = false
@@ -113,6 +112,15 @@ class MainActivity : ComponentActivity() {
     private val sharedLocationHandler = Handler(Looper.getMainLooper())
     private var sharedLocationResolver = SharedLocationResolver()
     private var sharedAddress by mutableStateOf("")
+    private var cancelSharedSearchLocation: (() -> Unit)? = null
+    private var pendingSearchPermission: ((Boolean) -> Unit)? = null
+    private var searchPermissionInFlight = false
+    private val searchLocationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        searchPermissionInFlight = false
+        val callback = pendingSearchPermission
+        pendingSearchPermission = null
+        callback?.invoke(result.values.any { it })
+    }
 
     private val microphonePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (!canListen()) return@registerForActivityResult
@@ -189,57 +197,69 @@ class MainActivity : ComponentActivity() {
         resolvingSharedLocation = true
         message = word("resolvingSharedLocation")
         val generation = sharedLocationGeneration
-        val provider = searchProvider()
         val language = profile.language
         sharedLocationThread = Thread {
-            var failureKey = "sharedLocationUnresolved"
-            var addressMatches = emptyList<PlaceCandidate>()
-            var originalAddress = ""
-            val resolved = try {
-                when (val destination = sharedLocationResolver.resolve(sharedText.orEmpty())) {
-                    is SharedDestination.Coordinates -> destination.location
-                    is SharedDestination.Address -> {
-                        originalAddress = destination.sharedAddress
-                        addressMatches = provider.search(destination.query, language)
-                        null
-                    }
-                    null -> null
-                }
-            } catch (_: InterruptedException) {
-                return@Thread
-            } catch (error: PlaceSearchException) {
-                failureKey = when (error.reason) {
-                    PlaceSearchFailure.NOT_CONFIGURED -> "configured"
-                    PlaceSearchFailure.ACCESS_DENIED -> "searchAccessDenied"
-                    PlaceSearchFailure.QUOTA -> "searchQuota"
-                    else -> "sharedLocationOffline"
-                }
-                null
-            } catch (_: java.io.IOException) {
-                failureKey = "sharedLocationOffline"
-                null
-            }
+            val result = runCatching { sharedLocationResolver.resolve(sharedText.orEmpty()) }
             sharedLocationHandler.post {
                 if (generation != sharedLocationGeneration || isDestroyed) return@post
                 sharedLocationThread = null
-                resolvingSharedLocation = false
-                if (resolved != null) showSharedLocation(resolved)
-                else if (addressMatches.isNotEmpty()) {
-                    sharedAddress = originalAddress
-                    choices = addressMatches.mapIndexed { index, place ->
-                        SavedPlace("shared-location-$index", place.address.substringBefore(','), emptyList(),
-                            place.address, place.latitude, place.longitude)
+                result.onSuccess { destination ->
+                    when (destination) {
+                        is SharedDestination.Coordinates -> {
+                            resolvingSharedLocation = false
+                            showSharedLocation(destination.location)
+                        }
+                        is SharedDestination.Address -> searchSharedAddress(destination, generation, language)
+                        null -> {
+                            resolvingSharedLocation = false
+                            message = word("sharedLocationUnresolved")
+                        }
                     }
-                    screen = "sharedChoices"
-                    message = ""
-                    speak(word("selectSharedLocation"))
-                } else message = word(failureKey)
+                }.onFailure {
+                    resolvingSharedLocation = false
+                    message = word("sharedLocationOffline")
+                }
             }
         }.also { it.start() }
     }
 
+    private fun searchSharedAddress(destination: SharedDestination.Address, generation: Int, language: String) {
+        cancelSharedSearchLocation = destinationLocationLookup { center ->
+            if (generation != sharedLocationGeneration || isDestroyed) return@destinationLocationLookup
+            if (center == null || !SearchBoundary.valid(center)) {
+                resolvingSharedLocation = false
+                message = word("searchLocationRequired")
+                return@destinationLocationLookup
+            }
+            val provider = searchProvider(center)
+            sharedLocationThread = Thread {
+                val result = runCatching { SearchBoundary.filter(center, provider.search(destination.query, language)) }
+                sharedLocationHandler.post {
+                    if (generation != sharedLocationGeneration || isDestroyed) return@post
+                    sharedLocationThread = null
+                    resolvingSharedLocation = false
+                    result.onSuccess { matches ->
+                        if (matches.isEmpty()) message = word("searchNoResults")
+                        else {
+                            sharedAddress = destination.sharedAddress
+                            choices = matches.mapIndexed { index, place ->
+                                SavedPlace("shared-location-$index", place.address.substringBefore(','), emptyList(),
+                                    place.address, place.latitude, place.longitude)
+                            }
+                            screen = "sharedChoices"
+                            message = ""
+                            speak(word("selectSharedLocation"))
+                        }
+                    }.onFailure { message = word(searchFailureKey(it)) }
+                }
+            }.also { it.start() }
+        }
+    }
+
     private fun cancelSharedLocation() {
         sharedLocationGeneration++
+        cancelSharedSearchLocation?.invoke()
+        cancelSharedSearchLocation = null
         sharedLocationThread?.interrupt()
         sharedLocationThread = null
         sharedLocationHandler.removeCallbacksAndMessages(null)
@@ -257,6 +277,56 @@ class MainActivity : ComponentActivity() {
             latitude = location.latitude,
             longitude = location.longitude
         ))
+    }
+
+    private fun hasSearchLocationPermission() =
+        listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            .any { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }
+
+    /** Permission and lookup share the caller's cancellation lifetime. */
+    private fun lookupSearchLocation(callback: (PlaceCandidate?) -> Unit): () -> Unit {
+        var active = true
+        var cancelLookup: () -> Unit = {}
+        val onPermission: (Boolean) -> Unit = { granted ->
+            if (active) {
+                if (granted) cancelLookup = SearchLocationLookup(this).lookup { if (active) callback(it) }
+                else callback(null)
+            }
+        }
+        if (hasSearchLocationPermission()) onPermission(true)
+        else {
+            pendingSearchPermission = onPermission
+            if (!searchPermissionInFlight) {
+                searchPermissionInFlight = true
+                searchLocationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
+        }
+        return {
+            active = false
+            cancelLookup()
+            if (pendingSearchPermission === onPermission) pendingSearchPermission = null
+        }
+    }
+
+    private fun searchFailureKey(error: Throwable) = when ((error as? PlaceSearchException)?.reason) {
+        PlaceSearchFailure.NOT_CONFIGURED -> "configured"
+        PlaceSearchFailure.ACCESS_DENIED -> "searchAccessDenied"
+        PlaceSearchFailure.QUOTA -> "searchQuota"
+        PlaceSearchFailure.UNAVAILABLE, PlaceSearchFailure.INVALID_RESPONSE -> "searchUnavailable"
+        PlaceSearchFailure.LOCATION_REQUIRED -> "searchLocationRequired"
+        null -> "offline"
+    }
+
+    @Composable
+    private fun SearchLocationActions() {
+        TextButton(onClick = {
+            if (hasSearchLocationPermission()) startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+            else startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:$packageName")))
+        }) { Text(word(if (hasSearchLocationPermission()) "openLocation" else "openAppSettings")) }
+        if (screen != "destinationSearch") TextButton(onClick = {
+            if (screen == "editor") searchAddress() else handleSharedLocation(intent)
+        }) { Text(word("retry")) }
     }
 
     private fun word(key: String) = Words.get(profile.language, key)
@@ -361,6 +431,7 @@ class MainActivity : ComponentActivity() {
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                         TextButton(onClick = { cancelSharedLocation() }) { Text(word("cancel")) }
                     }
+                    if (message == word("searchLocationRequired")) SearchLocationActions()
                     if (message == word("micDenied") || message == word("locationDenied")) {
                         TextButton(onClick = {
                             startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -775,11 +846,14 @@ class MainActivity : ComponentActivity() {
         val language = profile.language
         cancelSearchLocation = destinationLocationLookup { location ->
             if (generation != destinationSearchGeneration || screen != "destinationSearch" || isDestroyed) return@destinationLocationLookup
-            val home = places.firstOrNull { it.isHome }?.let { PlaceCandidate(it.address, it.latitude, it.longitude) }
-            destinationSearch = destinationSearch?.copy(homeBias = location == null && home != null)
-            val provider = destinationSearchProvider(location ?: home)
+            if (location == null || !SearchBoundary.valid(location)) {
+                destinationSearch = destinationSearch?.copy(loading = false, error = "searchLocationRequired", retryable = true)
+                speak(word("searchLocationRequired"))
+                return@destinationLocationLookup
+            }
+            val provider = destinationSearchProvider(location)
             destinationSearchThread = Thread {
-                val result = runCatching { provider.search(query, language) }
+                val result = runCatching { SearchBoundary.filter(location, provider.search(query, language)) }
                 runOnUiThread {
                     if (generation != destinationSearchGeneration || screen != "destinationSearch" || isDestroyed) return@runOnUiThread
                     destinationSearchThread = null
@@ -788,15 +862,9 @@ class MainActivity : ComponentActivity() {
                             error = if (candidates.isEmpty()) "searchNoResults" else null)
                         if (candidates.isEmpty()) speak(word("searchNoResults")) else announceSearchChoices()
                     }.onFailure { error ->
-                        val key = when ((error as? PlaceSearchException)?.reason) {
-                            PlaceSearchFailure.NOT_CONFIGURED -> "configured"
-                            PlaceSearchFailure.ACCESS_DENIED -> "searchAccessDenied"
-                            PlaceSearchFailure.QUOTA -> "searchQuota"
-                            PlaceSearchFailure.UNAVAILABLE, PlaceSearchFailure.INVALID_RESPONSE -> "searchUnavailable"
-                            null -> "offline"
-                        }
+                        val key = searchFailureKey(error)
                         destinationSearch = destinationSearch?.copy(loading = false, error = key,
-                            retryable = key in listOf("searchUnavailable", "offline"))
+                            retryable = key in listOf("searchUnavailable", "offline", "searchLocationRequired"))
                         speak(word(key))
                     }
                 }
@@ -811,7 +879,6 @@ class MainActivity : ComponentActivity() {
         message = ""
         val generation = destinationSearchGeneration
         val prompt = buildString {
-            if (state.homeBias) append(word("searchNearHome")).append(". ")
             append(word("searchChoose")).append(". ")
             state.visible.forEachIndexed { index, candidate ->
                 append("${index + 1}. ${SpeechText.addressSummary(candidate.address)}. ")
@@ -920,7 +987,7 @@ class MainActivity : ComponentActivity() {
             Text(word("searchingDestination"))
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
-        if (state.homeBias) Text(word("searchNearHome"))
+        if (state.error == "searchLocationRequired") SearchLocationActions()
         state.error?.let { Text(word(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         if (!state.loading && !state.editing) {
             state.visible.forEachIndexed { index, candidate ->
@@ -994,6 +1061,8 @@ class MainActivity : ComponentActivity() {
 
     private fun cancelAddressSearch() {
         searchGeneration++
+        cancelAddressLocation?.invoke()
+        cancelAddressLocation = null
         pendingSearch?.let { searchHandler.removeCallbacks(it) }
         pendingSearch = null
         searchThread?.interrupt()
@@ -1020,27 +1089,27 @@ class MainActivity : ComponentActivity() {
         searchResults = emptyList()
         message = ""
         val language = locale().toLanguageTag()
-        val provider = searchProvider()
-        searchThread = Thread {
-            val result = runCatching { provider.search(query, language) }
-            runOnUiThread {
-                if (generation != searchGeneration || isDestroyed || screen != "editor") return@runOnUiThread
-                searchThread = null
+        cancelAddressLocation = destinationLocationLookup { center ->
+            if (generation != searchGeneration || isDestroyed || screen != "editor") return@destinationLocationLookup
+            if (center == null || !SearchBoundary.valid(center)) {
                 searching = false
-                result.onSuccess {
-                    searchResults = it
-                    if (it.isEmpty()) message = word("noResults")
-                }.onFailure { error ->
-                    message = word(when ((error as? PlaceSearchException)?.reason) {
-                        PlaceSearchFailure.NOT_CONFIGURED -> "configured"
-                        PlaceSearchFailure.ACCESS_DENIED -> "searchAccessDenied"
-                        PlaceSearchFailure.QUOTA -> "searchQuota"
-                        PlaceSearchFailure.UNAVAILABLE, PlaceSearchFailure.INVALID_RESPONSE -> "searchUnavailable"
-                        null -> "offline"
-                    })
-                }
+                message = word("searchLocationRequired")
+                return@destinationLocationLookup
             }
-        }.also { it.start() }
+            val provider = searchProvider(center)
+            searchThread = Thread {
+                val result = runCatching { SearchBoundary.filter(center, provider.search(query, language)) }
+                runOnUiThread {
+                    if (generation != searchGeneration || isDestroyed || screen != "editor") return@runOnUiThread
+                    searchThread = null
+                    searching = false
+                    result.onSuccess {
+                        searchResults = it
+                        if (it.isEmpty()) message = word("noResults")
+                    }.onFailure { message = word(searchFailureKey(it)) }
+                }
+            }.also { it.start() }
+        }
     }
 
     private fun savePlace() {
@@ -1294,7 +1363,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         foreground = false
-        if (destinationSearch?.loading == true) {
+        if (destinationSearch?.loading == true && !searchPermissionInFlight) {
             cancelDestinationSearch(clear = false)
             destinationSearch = destinationSearch?.copy(error = "searchInterrupted", retryable = true)
         }
@@ -1304,7 +1373,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        cancelSharedLocation()
+        if (!searchPermissionInFlight) {
+            cancelSharedLocation()
+            cancelAddressSearch()
+        }
         if (handoffInProgress) { cancelLocation(); message = word("rideInterrupted") }
     }
 

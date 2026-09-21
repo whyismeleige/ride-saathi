@@ -11,7 +11,7 @@ interface PlaceSearchProvider {
     fun search(query: String, language: String): List<PlaceCandidate>
 }
 
-enum class PlaceSearchFailure { NOT_CONFIGURED, ACCESS_DENIED, QUOTA, UNAVAILABLE, INVALID_RESPONSE }
+enum class PlaceSearchFailure { NOT_CONFIGURED, ACCESS_DENIED, QUOTA, UNAVAILABLE, INVALID_RESPONSE, LOCATION_REQUIRED }
 
 class PlaceSearchException(val reason: PlaceSearchFailure) : java.io.IOException(reason.name)
 
@@ -39,22 +39,22 @@ internal fun olaGet(url: String): String {
 /** Ola autocomplete includes geometry; no per-suggestion Details requests are needed. */
 class OlaPlaceSearchProvider(
     private val apiKey: String,
-    private val bias: PlaceCandidate? = null,
+    private val center: PlaceCandidate? = null,
     private val get: (String) -> String = ::olaGet
 ) : PlaceSearchProvider {
     override fun search(query: String, language: String): List<PlaceCandidate> {
         if (apiKey.isBlank()) throw PlaceSearchException(PlaceSearchFailure.NOT_CONFIGURED)
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Search cancelled")
         if (query.trim().length < 3) return emptyList()
+        val origin = center?.takeIf(SearchBoundary::valid)
+            ?: throw PlaceSearchException(PlaceSearchFailure.LOCATION_REQUIRED)
         val url = Uri.parse(ProviderEndpoints.SEARCH).buildUpon()
             .appendQueryParameter("input", query.trim())
             .appendQueryParameter("language", language.substringBefore('-').lowercase(Locale.ROOT))
             .appendQueryParameter("api_key", apiKey.trim())
-        bias?.takeIf { validCoordinates(it.latitude, it.longitude) }?.let {
-            url.appendQueryParameter("location", "${it.latitude},${it.longitude}")
-            // Prefer nearby matches without excluding another city explicitly typed by the user.
-            url.appendQueryParameter("strictbounds", "false")
-        }
+        url.appendQueryParameter("location", "${origin.latitude},${origin.longitude}")
+        url.appendQueryParameter("radius", SearchBoundary.RADIUS_METERS.toString())
+        url.appendQueryParameter("strictbounds", "true")
         val body = get(url.build().toString())
         if (Thread.currentThread().isInterrupted) throw InterruptedException("Search cancelled")
         try {
@@ -79,7 +79,8 @@ class OlaPlaceSearchProvider(
             }.distinct()
             if (results.length() > 0 && candidates.isEmpty())
                 throw PlaceSearchException(PlaceSearchFailure.INVALID_RESPONSE)
-            return candidates
+            // Enforce the boundary locally even if the service returns out-of-area suggestions.
+            return SearchBoundary.filter(origin, candidates)
         } catch (_: org.json.JSONException) {
             throw PlaceSearchException(PlaceSearchFailure.INVALID_RESPONSE)
         }

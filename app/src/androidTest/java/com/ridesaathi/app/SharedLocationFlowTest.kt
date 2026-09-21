@@ -34,6 +34,15 @@ class SharedLocationFlowTest {
             savePlaces(listOf(home))
         }
         scenario = ActivityScenario.launch(MainActivity::class.java)
+        val lookup: ((PlaceCandidate?) -> Unit) -> (() -> Unit) = { callback ->
+            callback(PlaceCandidate("", 17.385, 78.4867)); {}
+        }
+        scenario.onActivity { activity ->
+            MainActivity::class.java.getDeclaredField("destinationLocationLookup").apply {
+                isAccessible = true
+                set(activity, lookup)
+            }
+        }
     }
 
     @After fun cleanup() {
@@ -73,7 +82,7 @@ class SharedLocationFlowTest {
 
     @Test fun addressLinkRequiresChoosingSearchResultBeforeConfirmation() {
         resolver { "https://www.google.com/maps/place/Charminar,+Hyderabad/data=!4m2!3m1!1splace-id" }
-        val factory: () -> PlaceSearchProvider = {
+        val factory: (PlaceCandidate) -> PlaceSearchProvider = {
             object : PlaceSearchProvider {
                 override fun search(query: String, language: String): List<PlaceCandidate> {
                     assertEquals("Charminar", query)

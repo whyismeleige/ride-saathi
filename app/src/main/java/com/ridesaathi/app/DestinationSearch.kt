@@ -97,7 +97,6 @@ data class DestinationSearchState(
     val page: Int = 0,
     val loading: Boolean = false,
     val editing: Boolean = false,
-    val homeBias: Boolean = false,
     val error: String? = null,
     val retryable: Boolean = false
 ) {

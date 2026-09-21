@@ -43,7 +43,7 @@ class DestinationSearchFlowTest {
         scenario.onActivity { activity ->
             activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-        location(null)
+        location(PlaceCandidate("", 17.38, 78.48))
         provider { _, _ -> candidates }
     }
 
@@ -70,7 +70,7 @@ class DestinationSearchFlowTest {
         scenario.onActivity { set(it, "destinationLocationLookup", lookup) }
     }
     private fun provider(search: (String, String) -> List<PlaceCandidate>) {
-        val factory: (PlaceCandidate?) -> PlaceSearchProvider = {
+        val factory: (PlaceCandidate) -> PlaceSearchProvider = {
             object : PlaceSearchProvider { override fun search(query: String, language: String) = search(query, language) }
         }
         scenario.onActivity { set(it, "destinationSearchProvider", factory) }
@@ -149,21 +149,49 @@ class DestinationSearchFlowTest {
         waitText("1. ${candidates[0].address}")
     }
 
-    @Test fun currentLocationBiasAndHomeFallbackReachProvider() {
+    @Test fun currentLocationSetsBoundaryEvenWhenSavedHomeIsInAnotherCity() {
         val captured = mutableListOf<PlaceCandidate?>()
-        val factory: (PlaceCandidate?) -> PlaceSearchProvider = { bias ->
-            captured.add(bias)
-            object : PlaceSearchProvider { override fun search(query: String, language: String) = candidates }
+        val current = PlaceCandidate("", 19.076, 72.8777)
+        val local = PlaceCandidate("Apollo Hospital, Mumbai", 19.08, 72.89)
+        val factory: (PlaceCandidate) -> PlaceSearchProvider = { center ->
+            captured.add(center)
+            object : PlaceSearchProvider {
+                override fun search(query: String, language: String) = candidates + local
+            }
         }
         scenario.onActivity { set(it, "destinationSearchProvider", factory) }
-        start()
-        waitText(Words.get("en", "searchNearHome"))
-        say("cancel")
-        val current = PlaceCandidate("", 19.0, 73.0)
         location(current)
+        say("Apollo Hospital")
+        waitText("1. ${local.address}")
+        ui.onNodeWithText("1. ${candidates[0].address}").assertDoesNotExist()
+        assertEquals(listOf(current), captured)
+    }
+
+    @Test fun unavailableLocationNeverFallsBackToHomeOrCallsProvider() {
+        val calls = AtomicInteger()
+        provider { _, _ -> calls.incrementAndGet(); candidates }
+        location(null)
+        say("Apollo Hospital")
+        waitText(Words.get("en", "searchLocationRequired"))
+        assertEquals(0, calls.get())
+        location(PlaceCandidate("", 17.38, 78.48))
+        tap(Words.get("en", "retry"))
+        waitText("1. ${candidates[0].address}")
+        assertEquals(1, calls.get())
+    }
+
+    @Test fun distantCitiesAreExcludedAndNoNearbyMatchesDoNotWidenSearch() {
+        val distant = listOf(PlaceCandidate("Clinic, Delhi", 28.61, 77.21),
+            PlaceCandidate("Clinic, Mumbai", 19.076, 72.8777))
+        provider { _, _ -> distant + candidates.take(1) }
         start()
-        ui.onNodeWithText(Words.get("en", "searchNearHome")).assertDoesNotExist()
-        assertEquals(listOf(PlaceCandidate(home.address, home.latitude, home.longitude), current), captured)
+        ui.onNodeWithText("2. ${distant[0].address}").assertDoesNotExist()
+        scenario.onActivity { assertEquals(candidates.take(1), (field(it, "destinationSearch") as DestinationSearchState).candidates) }
+        say("cancel")
+        provider { _, _ -> distant }
+        say("Clinic, Delhi")
+        waitText(Words.get("en", "searchNoResults"))
+        scenario.onActivity { assertTrue((field(it, "destinationSearch") as DestinationSearchState).candidates.isEmpty()) }
     }
 
     @Test fun searchAgainSupportsSpokenAndTypedReplacementQueries() {
@@ -189,19 +217,19 @@ class DestinationSearchFlowTest {
 
     @Test fun spokenCorrectionReplacesResultsAndStillRequiresSelection() {
         val queries = mutableListOf<String>()
-        val corrected = PlaceCandidate("City Clinic, Chennai", 13.08, 80.27)
+        val corrected = PlaceCandidate("City Clinic, Hyderabad", 17.42, 78.51)
         provider { query, _ ->
             synchronized(queries) { queries.add(query) }
-            if (query == "City Clinic, Chennai") listOf(corrected) else candidates
+            if (query == "City Clinic, Hyderabad") listOf(corrected) else candidates
         }
         start()
         say("more results")
         waitText("1. ${candidates[3].address}")
-        say("No, sorry, actually I want to go to City Clinic, Chennai")
+        say("No, sorry, actually I want to go to City Clinic, Hyderabad")
         waitText("1. ${corrected.address}")
         ui.onNodeWithText("1. ${candidates[3].address}").assertDoesNotExist()
         ui.onNodeWithText(Words.get("en", "confirm")).assertDoesNotExist()
-        assertEquals(listOf("Apollo Hospital", "City Clinic, Chennai"), synchronized(queries) { queries.toList() })
+        assertEquals(listOf("Apollo Hospital", "City Clinic, Hyderabad"), synchronized(queries) { queries.toList() })
         say("one")
         waitText(Words.get("en", "confirm"))
         scenario.onActivity {
