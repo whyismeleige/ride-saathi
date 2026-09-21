@@ -444,6 +444,9 @@ class MainActivity : ComponentActivity() {
                 "destinationSearch" -> StickyMicrophone(enabled = destinationSearch?.loading == false)
                 "confirm" -> StickyMicrophone(enabled = !handoffInProgress)
             }
+            if (screen == "onboarding") {
+                Surface(shadowElevation = 8.dp) { OnboardingActions() }
+            }
         }
     }
 
@@ -506,29 +509,36 @@ class MainActivity : ComponentActivity() {
     private fun Onboarding() {
         Text(word("welcome"), style = MaterialTheme.typography.headlineMedium)
         Text(word("setupHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SectionCard { LanguagePicker() }
+        SectionCard { LanguagePicker(dropdown = true) }
         OutlinedTextField(value = profile.name, onValueChange = {
             profile = profile.copy(name = it)
             store.saveProfile(profile)
         }, label = { Text(word("name")) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
         Text(word("places"), style = MaterialTheme.typography.titleLarge)
         places.forEach { place -> PlaceRow(place, true) }
-        if (places.none { it.isHome }) {
-            LargeButton(word("addHome")) { openEditor(null, true) }
-        } else {
-            OutlinedButton(onClick = { openEditor(null, false) }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("addPlace")) }
-            Text(word("demo"), style = MaterialTheme.typography.bodyLarge)
-            if (!uberInstalled()) {
-                Text(word("uberInstall"))
-                LargeButton(word("install")) { openStore() }
-            }
-            LargeButton(word("finish")) {
-                if (profile.name.isBlank()) message = word("name")
-                else {
-                    profile = profile.copy(completed = true)
-                    store.saveProfile(profile)
-                    message = ""
-                    screen = "home"
+        if (!uberInstalled()) {
+            Text(word("uberInstall"), style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+
+    @Composable
+    private fun OnboardingActions() {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (places.none { it.isHome }) {
+                LargeButton(word("addHome")) { openEditor(null, true) }
+            } else {
+                LargeButton(word("finish")) {
+                    if (profile.name.isBlank()) message = word("name")
+                    else {
+                        profile = profile.copy(completed = true)
+                        store.saveProfile(profile)
+                        message = ""
+                        screen = "home"
+                    }
+                }
+                OutlinedButton(onClick = { openEditor(null, false) }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("addPlace")) }
+                if (!uberInstalled()) {
+                    LargeButton(word("install")) { openStore() }
                 }
             }
         }
