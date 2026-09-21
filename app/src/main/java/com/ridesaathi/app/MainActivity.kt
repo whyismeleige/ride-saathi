@@ -136,10 +136,6 @@ class MainActivity : ComponentActivity() {
         store = LocalStore(this)
         mapEndpoint = store.mapEndpoint()
         profile = store.profile()
-        if (profile.language == "te") {
-            profile = profile.copy(language = "en")
-            store.saveProfile(profile)
-        }
         places = store.places()
         screen = if (profile.completed && places.any { it.isHome }) "home" else "onboarding"
         tts = TextToSpeech(this) { status ->
@@ -266,6 +262,7 @@ class MainActivity : ComponentActivity() {
     private fun word(key: String) = Words.get(profile.language, key)
     private fun locale() = when (profile.language) {
         "hi" -> Locale.forLanguageTag("hi-IN")
+        "te" -> Locale.forLanguageTag("te-IN")
         else -> Locale.forLanguageTag("en-IN")
     }
     private fun speak(value: String, after: (() -> Unit)? = null) {
@@ -387,19 +384,49 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun selectLanguage(code: String) {
+        profile = profile.copy(language = code)
+        store.saveProfile(profile)
+        tts?.language = locale()
+        message = ""
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    private fun LanguagePicker() {
+    private fun LanguagePicker(dropdown: Boolean = false) {
+        val languages = listOf("en" to "English", "hi" to "हिन्दी", "te" to "తెలుగు")
         Text(word("language"), style = MaterialTheme.typography.titleLarge)
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("en" to "English", "hi" to "हिन्दी").forEach { (code, label) ->
-                FilterChip(selected = profile.language == code, onClick = {
-                    profile = profile.copy(language = code)
-                    store.saveProfile(profile)
-                    tts?.language = locale()
-                    message = ""
-                }, label = { Text(label, style = MaterialTheme.typography.bodyLarge) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                    leadingIcon = { if (profile.language == code) RideIcon("check", Modifier.size(20.dp)) })
+        if (dropdown) {
+            var expanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                OutlinedTextField(
+                    value = languages.firstOrNull { it.first == profile.language }?.second ?: "English",
+                    onValueChange = {},
+                    readOnly = true,
+                    singleLine = true,
+                    label = { Text(word("changeLanguage")) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth()
+                )
+                ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    languages.forEach { (code, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+                            onClick = { selectLanguage(code); expanded = false },
+                            trailingIcon = { if (profile.language == code) RideIcon("check", Modifier.size(20.dp)) },
+                            modifier = Modifier.heightIn(min = 52.dp)
+                        )
+                    }
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                languages.forEach { (code, label) ->
+                    FilterChip(selected = profile.language == code, onClick = { selectLanguage(code) },
+                        label = { Text(label, style = MaterialTheme.typography.bodyLarge) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        leadingIcon = { if (profile.language == code) RideIcon("check", Modifier.size(20.dp)) })
+                }
             }
         }
     }
@@ -539,7 +566,7 @@ class MainActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Text(word("settings"), style = MaterialTheme.typography.headlineMedium)
-                SectionCard { LanguagePicker() }
+                SectionCard { LanguagePicker(dropdown = true) }
                 Text(word("manage"), style = MaterialTheme.typography.titleLarge)
                 places.forEach { PlaceRow(it, true) }
             }
@@ -707,7 +734,6 @@ class MainActivity : ComponentActivity() {
             Text(if (place.isHome) word("home") else place.name, style = MaterialTheme.typography.headlineLarge)
             ExpandableAddress(place, style = MaterialTheme.typography.bodyLarge)
         }
-        Text(word("handoffHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (handoffInProgress) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         if (!uberInstalled()) LargeButton(word("install")) { openStore() }
         if (message == word("locationUnavailable")) {
@@ -716,6 +742,7 @@ class MainActivity : ComponentActivity() {
             }, modifier = Modifier.fillMaxWidth()) { Text(word("openLocation")) }
         }
         MapPreview(mapUrl, profile.language)
+        Text(word("handoffHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
     private fun cancelDestinationSearch(clear: Boolean = true) {

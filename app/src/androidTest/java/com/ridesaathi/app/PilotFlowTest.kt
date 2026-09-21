@@ -105,11 +105,43 @@ class PilotFlowTest {
     @Test fun changingLanguageKeepsEnglishSavedNamesUsable() {
         launch(saved = listOf(home, son.copy(name = "Doctor")))
         ui.onNodeWithText(Words.get("en", "settings")).performClick()
-        tap("हिन्दी")
+        tap("English")
+        ui.onNodeWithText("हिन्दी").performClick()
         ui.onNodeWithText(Words.get("hi", "done")).assertIsDisplayed().performClick()
         transcript("डॉक्टर के पास जाना है")
         ui.onNodeWithText(Words.get("hi", "confirm")).assertExists()
         ui.onNodeWithText("Doctor").assertExists()
+    }
+
+    @Test fun settingsDropdownPersistsTeluguAndCanSwitchBackToEnglish() {
+        launch()
+        ui.onNodeWithText(Words.get("en", "settings")).performClick()
+        ui.onNodeWithText("తెలుగు").assertDoesNotExist()
+        tap("English")
+        ui.onNodeWithText("తెలుగు").performClick()
+        ui.onNodeWithText(Words.get("te", "language")).assertExists()
+        ui.onNodeWithText("English").assertDoesNotExist()
+        assertEquals("te", LocalStore(context).profile().language)
+        scenario!!.recreate()
+        ui.waitForIdle()
+        ui.onNodeWithText(Words.get("te", "rideTo")).assertExists()
+        transcript("నన్ను ఇంటికి తీసుకెళ్లండి")
+        ui.onNodeWithText(Words.get("te", "confirm")).assertExists()
+        transcript("కాదు")
+        ui.onNodeWithText(Words.get("te", "settings")).performClick()
+        tap("తెలుగు")
+        ui.onNodeWithText("English").performClick()
+        ui.onNodeWithText(Words.get("en", "language")).assertExists()
+        assertEquals("en", LocalStore(context).profile().language)
+    }
+
+    @Test fun onboardingOffersTelugu() {
+        launch(completed = false, saved = emptyList())
+        tap("తెలుగు")
+        ui.onNodeWithText(Words.get("te", "welcome")).assertExists()
+        assertEquals("te", LocalStore(context).profile().language)
+        tap(Words.get("te", "addHome"))
+        ui.onNodeWithContentDescription(Words.get("te", "search")).assertExists()
     }
 
     @Test fun onboardingRequiresHomeAndOffersHindi() {

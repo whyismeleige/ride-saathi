@@ -221,12 +221,49 @@ object Words {
                   "sharedLocationOffline" to "Google Maps लिंक नहीं खुल सका। इंटरनेट कनेक्शन जाँचें और फिर से शेयर करें।",
                   "sharedLocationUnresolved" to "इस लिंक में मंज़िल का पिन नहीं मिला। Google Maps में कोई जगह चुनें या पिन लगाएँ, फिर से शेयर करें।"
           )
-  // Archived for future Telugu support; intentionally excluded from get().
   private val te =
           mapOf(
+                  "searchDestinations" to "మీ గమ్యస్థానాన్ని ఎంచుకోండి",
+                  "searchQuery" to "స్థలం పేరు మరియు ప్రాంతం",
+                  "searchingDestination" to "స్థలాలను వెతుకుతున్నాం…",
+                  "searchNearHome" to "మీరు సేవ్ చేసిన ఇంటికి దగ్గరలోని స్థలాలకు ప్రాధాన్యం ఇస్తున్నాం.",
+                  "searchChoose" to "మీరు ఏ స్థలానికి వెళ్లాలనుకుంటున్నారు?",
+                  "searchChoiceHint" to "ఒకటి, రెండు లేదా మూడు చెప్పండి, లేదా స్థలాన్ని నొక్కండి. స్థలం మార్చడానికి “మళ్లీ వెతకండి” అని చెప్పండి.",
+                  "searchMoreHint" to "ఇతర స్థలాల కోసం “మరిన్ని ఫలితాలు” అని చెప్పండి.",
+                  "searchMore" to "మరిన్ని ఫలితాలు",
+                  "searchPrevious" to "మునుపటి ఫలితాలు",
+                  "searchAgain" to "మళ్లీ వెతకండి",
+                  "searchRepeat" to "మళ్లీ వినిపించండి",
+                  "searchNoMore" to "ఇంకా ఫలితాలు లేవు. వేరే పేరు లేదా ప్రాంతంతో ప్రయత్నించడానికి “మళ్లీ వెతకండి” అని చెప్పండి.",
+                  "searchClearer" to "స్థలం పేరు, దాని ప్రాంతం లేదా నగరం చెప్పండి లేదా టైప్ చేయండి.",
+                  "searchChoiceUnclear" to "ఈ స్థలాల్లో ఒకదాని సంఖ్య చెప్పండి, లేదా దాన్ని నొక్కండి.",
+                  "searchNoResults" to "స్థలాలు దొరకలేదు. స్థలం పేరు, దాని ప్రాంతం లేదా నగరంతో మళ్లీ వెతకండి.",
+                  "searchInterrupted" to "వెతుకులాట ఆగిపోయింది. కొనసాగించడానికి మళ్లీ ప్రయత్నించండి.",
+                  "searchAttribution" to "చిరునామా శోధన: Ola Maps",
+                  "searchAccessDenied" to "Ola Mapsతో కనెక్ట్ కాలేదు. యాప్ ఇన్‌స్టాల్ చేసిన వ్యక్తి సహాయం తీసుకోండి.",
+                  "searchQuota" to "చిరునామా శోధన వినియోగ పరిమితి చేరుకుంది. తర్వాత మళ్లీ ప్రయత్నించండి.",
+                  "searchUnavailable" to "చిరునామా శోధన ప్రస్తుతం అందుబాటులో లేదు. మళ్లీ ప్రయత్నించండి.",
+                  "placeNameHint" to "రైడ్ అడిగేటప్పుడు మీరు చెప్పే పేరును వాడండి.",
+                  "editPlace" to "స్థలాన్ని మార్చండి",
+                  "changeAddress" to "చిరునామా మార్చండి",
+                  "selectAddress" to "క్రింద సరైన చిరునామాను నొక్కండి.",
+                  "openAppSettings" to "యాప్ అనుమతులు తెరవండి",
+                  "storeUnavailable" to "మీ ఫోన్‌లో Play Store తెరిచి Uber కోసం వెతకండి.",
+                  "rideInterrupted" to "రైడ్ అభ్యర్థన ఆగిపోయింది. గమ్యస్థానాన్ని చూసి మళ్లీ ప్రయత్నించండి.",
+                  "addressSearchHint" to "స్వయంచాలకంగా వెతకడానికి కనీసం 3 అక్షరాలు టైప్ చేయండి.",
+                  "searchPending" to "టైప్ చేయడం ఆపినప్పుడు వెతుకులాట మొదలవుతుంది…",
+                  "searchingAddress" to "చిరునామాలను వెతుకుతున్నాం…",
+                  "sharedLocation" to "షేర్ చేసిన లొకేషన్",
+                  "invalidSharedLocation" to "ఈ సందేశంలో మద్దతు ఉన్న లొకేషన్ లేదు. Ride Saathiతో లొకేషన్ లేదా Google Maps లింక్ షేర్ చేయండి.",
+                  "sharedLocationSetup" to "షేర్ చేసిన లొకేషన్ వాడే ముందు Ride Saathi సెటప్ పూర్తి చేయండి.",
+                  "resolvingSharedLocation" to "షేర్ చేసిన లొకేషన్ తెరుస్తున్నాం…",
+                  "selectSharedLocation" to "షేర్ చేసిన గమ్యస్థానాన్ని ఎంచుకోండి",
+                  "sharedSearchHint" to "లింక్‌లో చిరునామా ఉంది. ఈ శోధన ఫలితాలను చూసి సరైన స్థలాన్ని ఎంచుకోండి.",
+                  "sharedLocationOffline" to "Google Maps లింక్ తెరవలేకపోయాం. ఇంటర్నెట్ కనెక్షన్ చూసి మళ్లీ షేర్ చేయండి.",
+                  "sharedLocationUnresolved" to "ఆ లింక్‌లో గమ్యస్థానం పిన్ దొరకలేదు. Google Mapsలో స్థలాన్ని ఎంచుకోండి లేదా పిన్ పెట్టి మళ్లీ షేర్ చేయండి.",
                   "hello" to "నమస్కారం",
                   "setupHint" to "సులభమైన ప్రయాణాల కోసం చిన్న సెటప్. కుటుంబ సభ్యులు సహాయం చేయవచ్చు.",
-                  "voiceHint" to "సేవ్ చేసిన స్థలం పేరు చెప్పండి.",
+                  "voiceHint" to "మీరు ఎక్కడికి వెళ్లాలనుకుంటున్నారో చెప్పండి.",
                   "tapHint" to "లేదా ప్రారంభించడానికి క్రింద ఒక స్థలాన్ని నొక్కండి.",
                   "handoffHint" to "మీ రైడ్ ఎంచుకుని Uberలో బుకింగ్ పూర్తి చేయండి.",
                   "welcome" to "రైడ్ సాథికి స్వాగతం",
@@ -243,7 +280,7 @@ object Words {
                   "places" to "సేవ్ చేసిన స్థలాలు",
                   "settings" to "సెట్టింగ్‌లు",
                   "rideTo" to "మీరు ఎక్కడికి వెళ్లాలి?",
-                  "speak" to "సేవ్ చేసిన స్థలాన్ని చెప్పండి",
+                  "speak" to "మాట్లాడండి",
                   "listening" to "వింటున్నాం…",
                   "recognizedSpeech" to "యాప్ విన్న మాటలు",
                   "heardSoFar" to "ఇప్పటివరకు విన్నది…",
@@ -298,6 +335,7 @@ object Words {
   fun get(language: String, key: String): String =
           when (language) {
             "hi" -> hi[key]
+            "te" -> te[key]
             else -> en[key]
           }
                   ?: en[key] ?: key

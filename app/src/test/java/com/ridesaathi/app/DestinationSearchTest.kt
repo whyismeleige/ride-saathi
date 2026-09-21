@@ -25,6 +25,30 @@ class DestinationSearchTest {
         assertEquals("राम की दुकान", DestinationQuery.extract("राम की दुकान के पास जाना है"))
     }
 
+    @Test fun extractsTeluguTravelRequestsAndCorrections() {
+        assertEquals("అపోలో ఆసుపత్రి", DestinationQuery.extract("నన్ను అపోలో ఆసుపత్రి దగ్గరకు తీసుకెళ్లండి"))
+        assertEquals("అపోలో ఆసుపత్రి, హైదరాబాద్", DestinationQuery.extract("నాకు అపోలో ఆసుపత్రి, హైదరాబాద్ వెళ్లాలి"))
+        assertEquals("City Clinic", DestinationQuery.replacement("కాదు, నాకు City Clinic వెళ్లాలి"))
+        assertNull(DestinationQuery.extract("నాకు వెళ్లాలి"))
+        assertNull(DestinationQuery.replacement("మళ్లీ వెతకండి"))
+    }
+
+    @Test fun acceptsTeluguChoicesAndResultCommands() {
+        listOf("ఒకటి", "రెండు", "మూడు").forEachIndexed { index, text ->
+            assertEquals(SearchChoice.Select(index), DestinationChoices.parse(text, places))
+        }
+        assertEquals(SearchChoice.Select(1), DestinationChoices.parse("౨", places))
+        assertEquals(SearchChoice.More, DestinationChoices.parse(Words.get("te", "searchMore"), places))
+        assertEquals(SearchChoice.Previous, DestinationChoices.parse(Words.get("te", "searchPrevious"), places))
+        assertEquals(SearchChoice.Again, DestinationChoices.parse(Words.get("te", "searchAgain"), places))
+        assertEquals(SearchChoice.Repeat, DestinationChoices.parse(Words.get("te", "searchRepeat"), places))
+        assertEquals(SearchChoice.Cancel, DestinationChoices.parse(Words.get("te", "cancel"), places))
+        listOf("రెండు కాదు", "ఒకటి లేదా రెండు", "నాలుగు").forEach {
+            assertEquals(SearchChoice.Unknown, DestinationChoices.parse(it, places))
+        }
+        assertEquals(SearchChoice.Unknown, DestinationChoices.parse("మూడు", places.take(2)))
+    }
+
     @Test fun replacementRequestsRemoveApologiesAndKeepTheCorrectedAddress() {
         assertEquals("City Clinic, Chennai", DestinationQuery.replacement(
             "No, sorry, actually I want to go to City Clinic, Chennai."))

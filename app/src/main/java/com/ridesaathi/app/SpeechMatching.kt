@@ -3,7 +3,7 @@ package com.ridesaathi.app
 import java.text.Normalizer
 import java.util.Locale
 
-/** Whole-token matching preserves Hindi vowel marks and excludes `home` in `homework`. */
+/** Whole-token matching preserves Hindi and Telugu vowel marks and excludes `home` in `homework`. */
 object SpeechText {
     /** Keep spoken addresses to the first two non-empty parts; retain full addresses elsewhere. */
     fun addressSummary(address: String): String = address
@@ -27,7 +27,7 @@ object SpeechText {
 object DestinationResolver {
     // Transliteration cannot infer meaning. Family-specific translations remain editable aliases.
     private val vocabulary = listOf(
-        listOf("home", "घर", "होम", "ghar", "ఇల్లు"),
+        listOf("home", "घर", "होम", "ghar", "ఇల్లు", "ఇంటికి", "ఇంటి"),
         listOf("house", "हाउस", "घर", "ghar"),
         listOf("son", "beta", "bete", "बेटा", "बेटे"),
         listOf("doctor", "डॉक्टर", "डाक्टर", "चिकित्सक"),
@@ -142,7 +142,7 @@ object VoiceCommands {
     fun decision(text: String): VoiceDecision {
         fun has(vararg words: String) = words.any { SpeechText.contains(text, it) }
         return when {
-            has("cancel", "stop", "रद्द", "बंद", "कैंसल", "रुको", "రద్దు", "ఆపు") -> VoiceDecision.Cancel
+            has("cancel", "stop", "रद्द", "बंद", "कैंसल", "रुको", "రద్దు", "ఆపు", "ఆపండి") -> VoiceDecision.Cancel
             // A negative always wins, including "yes, no" and "हाँ नहीं".
             has("no", "nope", "not", "don't", "नहीं", "नही", "मत", "కాదు", "వద్దు") -> VoiceDecision.No
             has("yes", "yeah", "हाँ", "हां", "అవును") -> VoiceDecision.Yes

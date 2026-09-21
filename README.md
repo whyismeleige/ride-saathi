@@ -4,7 +4,7 @@
 - Have a list of saved places inside the app done during the initial onboarding process of the app.
 - The onboarding process can be initially setup by a family member once.
 - User needs to enter the Home address and it is mandatory for all users to enter their home address.
-- Multi-lingual Support (English/Hindi for now; Telugu translations archived for later)
+- Multi-lingual Support (English/Hindi/Telugu)
 - The entire app should work with the same language once the user has chosen it, even while onboarding.
 - Extremely easy to use and friction less to use.
 - Confirm the location to the user first before continuing to the cab-service app.
@@ -28,7 +28,7 @@
 - Stores saved destinations
 - Lets user tap destination
 - Lets user speak saved or unsaved destinations
-- Understands Multi-lingual (English/Hindi)
+- Understands Multi-lingual (English/Hindi/Telugu)
 - Confirms destination
 - Gets current pickup location
 - Generates Uber handoff
@@ -110,7 +110,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Launch] --> B[Choose Language English or Hindi]
+    A[Launch] --> B[Choose Language English, Hindi or Telugu]
  B --> C[Everything Switches Immediately]
 
  B --> D[Enter User Name]
@@ -272,7 +272,7 @@ OLA_MAPS_API_KEY=your_api_key
 
 Alternatively supply the `OLA_MAPS_API_KEY` environment variable when building; it takes precedence. Rebuild and reinstall after setting or changing the key. Do not commit credentials. Builds without a key still work with existing saved places; new searches explain that setup is needed.
 
-Search uses Ola's [Autocomplete API](https://maps.olakrutrim.com/docs/places-apis/autocomplete-api), whose response includes address descriptions and coordinates. It makes one request after a 500 ms typing pause (minimum three characters), without extra Place Details requests or automatic retries. English/Hindi requests use Ola's language codes. Once Home is saved, its coordinates bias searches toward nearby results without restricting searches to that area. The first Home search has no location bias: include the city/locality in the query. Only results with valid coordinates can be selected. Missing credentials, rejected credentials, quota exhaustion, and service errors have separate messages. Existing saved places and custom map-preview endpoints are preserved; legacy Nominatim search endpoints are no longer used.
+Search uses Ola's [Autocomplete API](https://maps.olakrutrim.com/docs/places-apis/autocomplete-api), whose response includes address descriptions and coordinates. It makes one request after a 500 ms typing pause (minimum three characters), without extra Place Details requests or automatic retries. English, Hindi, and Telugu requests use the selected language code. Once Home is saved, its coordinates bias searches toward nearby results without restricting searches to that area. The first Home search has no location bias: include the city/locality in the query. Only results with valid coordinates can be selected. Missing credentials, rejected credentials, quota exhaustion, and service errors have separate messages. Existing saved places and custom map-preview endpoints are preserved; legacy Nominatim search endpoints are no longer used.
 
 The [current Ola rate card](https://maps.olakrutrim.com/pricing/details) includes 100,000 calls per API per month, effective 1 September 2026. Verify the allowance in your account and keep paid top-ups disabled for a free-only pilot. Usage is shared across all installations using a key. A key embedded in an Android APK is extractable: this direct integration is for the small pilot; use a backend with account-wide quotas and abuse controls before broad distribution. Do not embed OAuth client secrets in the app.
 
@@ -283,7 +283,7 @@ Before relying on the new provider, compare 10–20 previously failing apartment
 
 Map loading regression checks: `node --test app/src/test/js/map-preview.test.cjs`. Android checks: `./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug`. Device UI checks: `./gradlew :app:connectedQaAndroidTest` (uses a separate `.qa` app and requires an unlocked phone that allows test installations). Leaflet's license is included in `app/src/main/assets/map/LICENSE`.
 
-Saved places remain on the device. Clearing app data removes them. The prototype has no family account, cloud sync, fare information, ride type selection, or ride status. Before the elderly-user pilot, validate English and Hindi speech and spoken output, screen reader behavior, map search, and the final Uber screen on the actual target phones. Telugu is temporarily unavailable; existing Telugu profiles switch to English, and translations are retained in `Words.kt` for future support.
+Saved places remain on the device. Clearing app data removes them. The prototype has no family account, cloud sync, fare information, ride type selection, or ride status. Before the elderly-user pilot, validate English, Hindi, and Telugu speech and spoken output, screen reader behavior, map search, and the final Uber screen on the actual target phones. English, Hindi, and Telugu are available during onboarding and in the Settings language dropdown. The selected language is saved and used for app text, speech recognition, and spoken prompts.
 
 
 ### Pilot voice matching and test guide
