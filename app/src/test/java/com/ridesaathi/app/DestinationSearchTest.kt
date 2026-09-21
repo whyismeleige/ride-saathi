@@ -25,6 +25,22 @@ class DestinationSearchTest {
         assertEquals("राम की दुकान", DestinationQuery.extract("राम की दुकान के पास जाना है"))
     }
 
+    @Test fun replacementRequestsRemoveApologiesAndKeepTheCorrectedAddress() {
+        assertEquals("City Clinic, Chennai", DestinationQuery.replacement(
+            "No, sorry, actually I want to go to City Clinic, Chennai."))
+        assertEquals("Central bus stop", DestinationQuery.replacement("Actually take me to Central bus stop"))
+        assertEquals("Go To Market Road", DestinationQuery.replacement("I want to go to Go To Market Road"))
+        assertEquals("अपोलो अस्पताल", DestinationQuery.replacement("नहीं, सॉरी, मुझे अपोलो अस्पताल जाना है"))
+        assertEquals("City Clinic", DestinationQuery.replacement("nahi sorry mujhe City Clinic jaana hai"))
+    }
+
+    @Test fun incompleteCorrectionsAndChoiceCommandsDoNotBecomeNewSearches() {
+        listOf("no", "no sorry actually", "no sorry I want to go to", "not first", "no second",
+            "first or second", "cancel", "more results", "Apollo Hospital").forEach {
+            assertNull(it, DestinationQuery.replacement(it))
+        }
+    }
+
     @Test fun emptyOrIncompleteTravelRequestsNeedClarification() {
         listOf("", "!!", "take me to", "मुझे जाना है", "yes", "हाँ", "go", "I want to go to", "to the").forEach {
             assertNull(it, DestinationQuery.extract(it))

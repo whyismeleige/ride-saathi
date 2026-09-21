@@ -372,6 +372,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            when (screen) {
+                "destinationSearch" -> StickyMicrophone(enabled = destinationSearch?.loading == false)
+                "confirm" -> StickyMicrophone(enabled = !handoffInProgress)
+            }
         }
     }
 
@@ -705,18 +709,11 @@ class MainActivity : ComponentActivity() {
         }
         Text(word("handoffHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (handoffInProgress) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        LargeButton(if (handoffInProgress) word("wait") else word("yes"), enabled = !handoffInProgress) { confirmRide() }
         if (!uberInstalled()) LargeButton(word("install")) { openStore() }
         if (message == word("locationUnavailable")) {
             OutlinedButton(onClick = {
                 startActivity(Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             }, modifier = Modifier.fillMaxWidth()) { Text(word("openLocation")) }
-        }
-        OutlinedButton(onClick = { returnToChoices() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Text(word("no"))
-        }
-        OutlinedButton(onClick = { if (listening) stopListening() else requestMicrophone() }, enabled = !handoffInProgress, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Text(if (listening) word("stop") else word("speak"))
         }
         MapPreview(mapUrl, profile.language)
     }
@@ -789,7 +786,9 @@ class MainActivity : ComponentActivity() {
         val prompt = buildString {
             if (state.homeBias) append(word("searchNearHome")).append(". ")
             append(word("searchChoose")).append(". ")
-            state.visible.forEachIndexed { index, candidate -> append("${index + 1}. ${candidate.address}. ") }
+            state.visible.forEachIndexed { index, candidate ->
+                append("${index + 1}. ${SpeechText.addressSummary(candidate.address)}. ")
+            }
             append(word("searchChoiceHint"))
             if (state.hasMore) append(". ").append(word("searchMoreHint"))
         }
@@ -839,6 +838,10 @@ class MainActivity : ComponentActivity() {
         val state = destinationSearch ?: return
         val choice = DestinationChoices.parse(raw, if (state.editing) emptyList() else state.visible)
         if (choice == SearchChoice.Cancel) { cancelRide(); return }
+        if (choice == SearchChoice.Unknown) DestinationQuery.replacement(raw)?.let { query ->
+            resolveDestination(query, queryIsExtracted = true)
+            return
+        }
         if (state.editing) {
             if (VoiceCommands.decision(raw) == VoiceDecision.No) { message = word("searchClearer"); return }
             resolveDestination(raw)
@@ -894,28 +897,34 @@ class MainActivity : ComponentActivity() {
         state.error?.let { Text(word(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         if (!state.loading && !state.editing) {
             state.visible.forEachIndexed { index, candidate ->
-                LargeButton("${index + 1}. ${candidate.address}") { chooseSearchResult(index) }
-            }
-            if (state.visible.isNotEmpty()) {
-                Text(word("searchChoiceHint"))
-                if (state.hasMore) LargeButton(word("searchMore")) { moreSearchChoices() }
-                if (state.page > 0) OutlinedButton(onClick = { previousSearchChoices() },
-                    modifier = Modifier.fillMaxWidth()) { Text(word("searchPrevious")) }
-                OutlinedButton(onClick = { announceSearchChoices() }, modifier = Modifier.fillMaxWidth()) { Text(word("searchRepeat")) }
+                LargeButton("${index + 1}. ${SpeechText.addressSummary(candidate.address)}", maxLines = 2) {
+                    chooseSearchResult(index)
+                }
             }
             if (state.retryable) LargeButton(word("retry")) { beginDestinationSearch(state.query, extractPhrase = false) }
-            LargeButton(word("searchAgain")) { editDestinationQuery() }
-        }
-        if (!state.loading) {
-            SpeechTranscript()
-            OutlinedButton(onClick = { if (listening) stopListening() else requestMicrophone() },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                Text(if (listening) word("stop") else word("speak"))
-            }
-            if (listening) Text(word("listening"), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
         }
         Text(word("searchAttribution"), style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = { cancelRide() }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("cancel")) }
+    }
+
+    @Composable
+    private fun StickyMicrophone(enabled: Boolean) {
+        val label = if (listening) word("stop") else word("speak")
+        Surface(modifier = Modifier.fillMaxWidth(), tonalElevation = 3.dp, shadowElevation = 4.dp) {
+            Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { if (listening) stopListening() else requestMicrophone() },
+                    enabled = enabled,
+                    shape = CircleShape, contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor =
+                        if (listening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.size(72.dp).semantics { contentDescription = label }) {
+                    RideIcon("mic", Modifier.size(32.dp), color = LocalContentColor.current)
+                }
+                if (listening) Text(word("listening"), style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            }
+        }
     }
 
     @Composable
@@ -931,11 +940,12 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun LargeButton(label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    private fun LargeButton(label: String, enabled: Boolean = true, maxLines: Int = Int.MAX_VALUE, onClick: () -> Unit) {
         Button(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(18.dp),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
-            Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,
+                maxLines = maxLines, overflow = TextOverflow.Ellipsis)
         }
     }
 
@@ -1040,7 +1050,9 @@ class MainActivity : ComponentActivity() {
         choices = emptyList()
         screen = "confirm"
         message = ""
-        speak("${word("confirm")} ${if (place.isHome) word("home") else place.name}. ${place.address}")
+        val name = if (place.isHome) word("home") else SpeechText.addressSummary(place.name)
+        val address = SpeechText.addressSummary(place.address)
+        speak("${word("confirm")} $name. $address")
     }
 
     private fun cancelRide() {
@@ -1153,10 +1165,10 @@ class MainActivity : ComponentActivity() {
         resolveDestination(raw)
     }
 
-    private fun resolveDestination(raw: String) {
+    private fun resolveDestination(raw: String, queryIsExtracted: Boolean = false) {
         val matched = DestinationResolver.matches(raw, places)
         when (matched.size) {
-            0 -> beginDestinationSearch(raw)
+            0 -> beginDestinationSearch(raw, extractPhrase = !queryIsExtracted)
             1 -> choose(matched.first())
             else -> {
                 cancelDestinationSearch()
@@ -1187,11 +1199,17 @@ class MainActivity : ComponentActivity() {
         handoffInProgress = false
     }
 
+    private fun reportLocationUnavailable() {
+        handoffInProgress = false
+        message = word("locationUnavailable")
+        speak(message)
+    }
+
     private fun fetchLocation() {
         if (!handoffInProgress || screen != "confirm") return
         val manager = getSystemService(LOCATION_SERVICE) as LocationManager
         if (!manager.isProviderEnabled(LocationManager.GPS_PROVIDER) && !manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            handoffInProgress = false; message = word("locationUnavailable"); return
+            reportLocationUnavailable(); return
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -1209,7 +1227,7 @@ class MainActivity : ComponentActivity() {
                 if (generation != locationGeneration || !handoffInProgress || isDestroyed || screen != "confirm") return@addOnSuccessListener
                 val place = selected
                 if (location == null || place == null || (location.hasAccuracy() && location.accuracy > 250f)) {
-                    handoffInProgress = false; message = word("locationUnavailable"); return@addOnSuccessListener
+                    reportLocationUnavailable(); return@addOnSuccessListener
                 }
                 try {
                     startActivity(UberHandoff.intent(place, location.latitude, location.longitude))
@@ -1222,7 +1240,7 @@ class MainActivity : ComponentActivity() {
                 finally { handoffInProgress = false }
             }.addOnFailureListener {
                 if (generation == locationGeneration && !isDestroyed) {
-                    handoffInProgress = false; message = word("locationUnavailable")
+                    reportLocationUnavailable()
                 }
             }
     }

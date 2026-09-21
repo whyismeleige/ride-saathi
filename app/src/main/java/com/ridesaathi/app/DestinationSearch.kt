@@ -2,6 +2,11 @@ package com.ridesaathi.app
 
 /** Removes only complete travel phrases at the edges, never words inside a place name. */
 object DestinationQuery {
+    private val wordPattern = Regex("[\\p{L}\\p{M}\\p{N}]+(?:['’][\\p{L}\\p{M}]+)?")
+    private val correctionPrefixes = listOf(
+        "no", "sorry", "actually", "please", "नहीं", "नही", "सॉरी", "माफ कीजिए", "माफ़ कीजिए",
+        "nahi", "nahin", "maaf kijiye"
+    ).map(SpeechText::tokens).sortedByDescending { it.size }
     private val prefixes = listOf(
         "please take me to", "i would like to go to", "i want to go to", "take me to",
         "can you take me to", "let me go to", "go to", "मुझे", "हमें", "mujhe", "hame"
@@ -12,11 +17,26 @@ object DestinationQuery {
         "jaana hai", "jana hai", "le chalo"
     ).map(SpeechText::tokens).sortedByDescending { it.size }
 
+    /** An explicit new travel request can replace results without confusing it with a choice. */
+    fun replacement(raw: String): String? {
+        var query = raw.trim()
+        while (true) {
+            val matches = wordPattern.findAll(query).toList()
+            val tokens = matches.map { SpeechText.tokens(it.value).joinToString("") }
+            val prefix = correctionPrefixes.firstOrNull { tokens.take(it.size) == it } ?: break
+            query = query.substring(matches[prefix.size - 1].range.last + 1)
+                .trim().trim(',', '.', '!', '?', '।').trim()
+        }
+        val tokens = SpeechText.tokens(query)
+        if (prefixes.none { tokens.take(it.size) == it }) return null
+        return extract(query)
+    }
+
     fun extract(raw: String): String? {
         // Retain original spelling/case and address punctuation in the remaining substring.
         var query = raw.trim().trimEnd('.', '!', '?', '।').trim()
         fun strip(phrases: List<List<String>>, leading: Boolean) {
-            val matches = Regex("[\\p{L}\\p{M}\\p{N}]+(?:['’][\\p{L}\\p{M}]+)?").findAll(query).toList()
+            val matches = wordPattern.findAll(query).toList()
             val tokens = matches.map { SpeechText.tokens(it.value).joinToString("") }
             val phrase = phrases.firstOrNull {
                 if (leading) tokens.take(it.size) == it else tokens.takeLast(it.size) == it

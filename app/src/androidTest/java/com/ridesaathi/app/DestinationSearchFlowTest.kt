@@ -175,7 +175,8 @@ class DestinationSearchFlowTest {
         say("City Clinic jaana hai")
         waitText("City Clinic")
         waitText("1. ${candidates[0].address}")
-        tap(Words.get("en", "searchAgain"))
+        say("search again")
+        waitText(Words.get("en", "searchQuery"))
         ui.onNode(hasSetTextAction()).performTextReplacement("Hospital, Chennai")
         tap(Words.get("en", "search"))
         waitText("1. ${candidates[0].address}")
@@ -186,6 +187,48 @@ class DestinationSearchFlowTest {
         assertEquals(3, synchronized(queries) { queries.size })
     }
 
+    @Test fun spokenCorrectionReplacesResultsAndStillRequiresSelection() {
+        val queries = mutableListOf<String>()
+        val corrected = PlaceCandidate("City Clinic, Chennai", 13.08, 80.27)
+        provider { query, _ ->
+            synchronized(queries) { queries.add(query) }
+            if (query == "City Clinic, Chennai") listOf(corrected) else candidates
+        }
+        start()
+        say("more results")
+        waitText("1. ${candidates[3].address}")
+        say("No, sorry, actually I want to go to City Clinic, Chennai")
+        waitText("1. ${corrected.address}")
+        ui.onNodeWithText("1. ${candidates[3].address}").assertDoesNotExist()
+        ui.onNodeWithText(Words.get("en", "confirm")).assertDoesNotExist()
+        assertEquals(listOf("Apollo Hospital", "City Clinic, Chennai"), synchronized(queries) { queries.toList() })
+        say("one")
+        waitText(Words.get("en", "confirm"))
+        scenario.onActivity {
+            assertEquals(corrected.address, (field(it, "selected") as SavedPlace).address)
+        }
+    }
+
+    @Test fun spokenCorrectionsMatchSavedAliasesAndClarifyAmbiguityBeforeSearching() {
+        val calls = AtomicInteger()
+        val clinic = home.copy(id = "clinic", name = "Family Clinic", aliases = listOf("my doctor"), isHome = false)
+        scenario.onActivity { set(it, "places", listOf(home, clinic)) }
+        provider { _, _ -> calls.incrementAndGet(); candidates }
+        start()
+        say("No, sorry, actually I want to go to my doctor")
+        waitText(Words.get("en", "confirm"))
+        scenario.onActivity { assertEquals(clinic, field(it, "selected")) }
+        assertEquals(1, calls.get())
+
+        say("no")
+        waitText(Words.get("en", "rideTo"))
+        start()
+        say("No, sorry, actually I want to go to Home or my doctor")
+        waitText(Words.get("en", "ambiguous"))
+        scenario.onActivity { assertEquals(listOf(home, clinic), field(it, "choices")) }
+        assertEquals(2, calls.get())
+    }
+
     @Test fun emptyQueryAndNoResultsOfferRefinement() {
         val calls = AtomicInteger()
         provider { _, _ -> calls.incrementAndGet(); emptyList() }
@@ -194,7 +237,9 @@ class DestinationSearchFlowTest {
         assertEquals(0, calls.get())
         say("Missing Clinic")
         waitText(Words.get("en", "searchNoResults"))
-        ui.onNodeWithText(Words.get("en", "searchAgain")).assertExists()
+        ui.onNodeWithContentDescription(Words.get("en", "speak")).assertIsDisplayed()
+        say("search again")
+        waitText(Words.get("en", "searchQuery"))
     }
 
     @Test fun providerFailuresHaveDistinctMessagesAndRetryPolicy() {
@@ -234,7 +279,7 @@ class DestinationSearchFlowTest {
         }
         say("Old Clinic")
         assertTrue(started.await(5, TimeUnit.SECONDS))
-        tap(Words.get("en", "cancel"))
+        tap(Words.get("en", "back"))
         start()
         release.countDown()
         assertTrue(finished.await(5, TimeUnit.SECONDS))

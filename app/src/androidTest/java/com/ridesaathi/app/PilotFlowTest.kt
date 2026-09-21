@@ -80,17 +80,17 @@ class PilotFlowTest {
         transcript("मुझे बेटे के घर जाना है")
         ui.onNodeWithText(Words.get("hi", "confirm")).assertExists()
         ui.onNodeWithText("beta ka ghar").assertExists()
-        ui.onNodeWithText(Words.get("hi", "yes")).performScrollTo().assertIsDisplayed()
+        ui.onNodeWithContentDescription(Words.get("hi", "speak")).assertIsDisplayed()
         transcript("हाँ नहीं")
         ui.onNodeWithText(Words.get("hi", "rideTo")).assertExists()
     }
 
-    @Test fun englishTouchFlowConfirmsAndCancels() {
+    @Test fun englishTouchSelectionAllowsVoiceCancellation() {
         launch()
         tap("beta ka ghar")
         ui.onNodeWithText(Words.get("en", "confirm")).assertExists()
-        ui.onNodeWithText(Words.get("en", "yes")).performScrollTo().assertIsDisplayed()
-        tap(Words.get("en", "no"))
+        ui.onNodeWithContentDescription(Words.get("en", "speak")).assertIsDisplayed()
+        transcript("no")
         ui.onNodeWithText(Words.get("en", "rideTo")).assertExists()
     }
 

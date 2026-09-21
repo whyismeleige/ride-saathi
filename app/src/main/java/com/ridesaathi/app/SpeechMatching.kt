@@ -5,6 +5,14 @@ import java.util.Locale
 
 /** Whole-token matching preserves Hindi vowel marks and excludes `home` in `homework`. */
 object SpeechText {
+    /** Keep spoken addresses to the first two non-empty parts; retain full addresses elsewhere. */
+    fun addressSummary(address: String): String = address
+        .splitToSequence(',', '\n', '\r')
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .take(2)
+        .joinToString(", ")
+
     fun tokens(value: String): List<String> = Normalizer.normalize(value, Normalizer.Form.NFKC)
         .lowercase(Locale.ROOT).replace(Regex("['’]s\\b"), "")
         .replace("\u200c", "").replace("\u200d", "")
