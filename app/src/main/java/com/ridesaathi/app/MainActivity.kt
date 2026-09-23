@@ -13,6 +13,12 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -40,6 +46,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +65,9 @@ class MainActivity : ComponentActivity() {
     private var profile by mutableStateOf(Profile())
     private var places by mutableStateOf<List<SavedPlace>>(emptyList())
     private var screen by mutableStateOf("onboarding")
+    private var tutorialMode by mutableStateOf("intro")
+    private var tutorialReturnScreen by mutableStateOf("onboarding")
+    private var tutorialStep by mutableStateOf(0)
     private var message by mutableStateOf("")
     private var selected by mutableStateOf<SavedPlace?>(null)
     private var choices by mutableStateOf<List<SavedPlace>>(emptyList())
@@ -367,6 +378,7 @@ class MainActivity : ComponentActivity() {
         when (screen) {
             "confirm" -> returnToChoices()
             "clarify", "sharedChoices", "destinationSearch" -> cancelRide()
+            "tutorial" -> finishTutorial()
             "editor" -> {
                 cancelAddressSearch()
                 if (pickingAddress && draftPosition != null) {
@@ -415,6 +427,7 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     when (screen) {
                         "onboarding" -> Onboarding()
+                        "tutorial" -> Tutorial()
                         "home" -> Home()
                         "confirm" -> Confirmation()
                         "clarify", "sharedChoices" -> Clarification()
@@ -459,10 +472,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectLanguage(code: String) {
+        val shouldShowIntro = !profile.completed && !profile.introSeen && profile.language != code
         profile = profile.copy(language = code)
         store.saveProfile(profile)
         tts?.language = locale()
         message = ""
+        if (shouldShowIntro) openTutorial("intro", "onboarding")
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -510,6 +525,13 @@ class MainActivity : ComponentActivity() {
         Text(word("welcome"), style = MaterialTheme.typography.headlineMedium)
         Text(word("setupHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         SectionCard { LanguagePicker(dropdown = true) }
+        if (!profile.introSeen) {
+            OutlinedButton(onClick = { openTutorial("intro", "onboarding") },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                RideIcon("arrow", Modifier.size(18.dp))
+                Text(word("watchIntro"))
+            }
+        }
         OutlinedTextField(value = profile.name, onValueChange = {
             profile = profile.copy(name = it)
             store.saveProfile(profile)
@@ -533,7 +555,8 @@ class MainActivity : ComponentActivity() {
                         profile = profile.copy(completed = true)
                         store.saveProfile(profile)
                         message = ""
-                        screen = "home"
+                        if (profile.tutorialSeen) screen = "home"
+                        else openTutorial("full", "home")
                     }
                 }
                 OutlinedButton(onClick = { openEditor(null, false) }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("addPlace")) }
@@ -544,32 +567,182 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private data class TutorialSlide(val icon: String, val titleKey: String, val bodyKey: String)
+
+    private fun introSlides(): List<TutorialSlide> = listOf(
+        TutorialSlide("home", "introFamilyTitle", "introFamilyBody"),
+        TutorialSlide("pin", "introPlacesTitle", "introPlacesBody")
+    )
+
+    private fun fullTutorialSlides(): List<TutorialSlide> = listOf(
+        TutorialSlide("mic", "tutorialSpeakTitle", "tutorialSpeakBody"),
+        TutorialSlide("check", "tutorialConfirmTitle", "tutorialConfirmBody"),
+        TutorialSlide("pin", "tutorialPickupTitle", "tutorialPickupBody"),
+        TutorialSlide("arrow", "tutorialUberTitle", "tutorialUberBody")
+    )
+
+    private fun tutorialSlides(): List<TutorialSlide> =
+        if (tutorialMode == "intro") introSlides() else fullTutorialSlides()
+
+    private fun openTutorial(mode: String, returnScreen: String) {
+        stopListening()
+        stopPrompt()
+        tutorialMode = mode
+        tutorialReturnScreen = returnScreen
+        tutorialStep = 0
+        message = ""
+        screen = "tutorial"
+    }
+
+    private fun finishTutorial() {
+        stopPrompt()
+        profile = if (tutorialMode == "intro") profile.copy(introSeen = true)
+            else profile.copy(introSeen = true, tutorialSeen = true)
+        store.saveProfile(profile)
+        tutorialStep = 0
+        message = ""
+        screen = tutorialReturnScreen
+    }
+
     @Composable
-    private fun Home() {
-        Text("${word("hello")}, ${profile.name}", style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(word("rideTo"), style = MaterialTheme.typography.headlineLarge)
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
-            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
-                    Box(Modifier.padding(20.dp)) { RideIcon("mic", Modifier.size(40.dp)) }
+    private fun Tutorial() {
+        val slides = tutorialSlides()
+        val slide = slides.getOrNull(tutorialStep) ?: return
+        val isLast = tutorialStep == slides.lastIndex
+        val animatedAlpha by animateFloatAsState(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 300),
+            label = "tutorialStepAlpha"
+        )
+        LaunchedEffect(tutorialMode, tutorialStep, profile.language) {
+            speak("${word(slide.titleKey)}. ${word(slide.bodyKey)}")
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.alpha(animatedAlpha)) {
+            LinearProgressIndicator(
+                progress = { (tutorialStep + 1).toFloat() / slides.size.toFloat() },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                word(if (tutorialMode == "intro") "introTitle" else "tutorialTitle"),
+                style = MaterialTheme.typography.headlineMedium
+            )
+            SectionCard {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
+                        Box(Modifier.padding(28.dp)) { RideIcon(slide.icon, Modifier.size(56.dp)) }
+                    }
                 }
-                Text(if (listening) word("listening") else word("voiceHint"),
-                    style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
-                SpeechTranscript()
-                LargeButton(if (listening) word("stop") else word("speak")) {
-                    if (listening) stopListening() else requestMicrophone()
+                Text(word(slide.titleKey), style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth())
+                Text(word(slide.bodyKey), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
+            }
+            OutlinedButton(onClick = { speak("${word(slide.titleKey)}. ${word(slide.bodyKey)}") },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                RideIcon("mic", Modifier.size(18.dp))
+                Text(word("replayAudio"))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                if (tutorialStep > 0) {
+                    OutlinedButton(
+                        onClick = { tutorialStep-- },
+                        modifier = Modifier.weight(1f).heightIn(min = 56.dp)
+                    ) { Text(word("back")) }
+                }
+                LargeButton(
+                    label = word(if (isLast) {
+                        if (tutorialMode == "intro") "continueSetup" else "startUsing"
+                    } else "continue"),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isLast) finishTutorial() else tutorialStep++
                 }
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    }
+
+    @Composable
+    private fun Home() {
+        var entered by remember { mutableStateOf(false) }
+        val contentAlpha by animateFloatAsState(if (entered) 1f else 0f, tween(450), label = "homeContentAlpha")
+        val heroScale by animateFloatAsState(if (entered) 1f else 0.96f, tween(450), label = "homeHeroScale")
+        LaunchedEffect(Unit) { entered = true }
+        Text("${word("hello")}, ${profile.name}", style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.alpha(contentAlpha))
+        Text(word("rideTo"), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.alpha(contentAlpha))
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.fillMaxWidth().scale(heroScale).alpha(contentAlpha)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                HomeMicrophone()
+                Text(if (listening) word("listening") else word("voiceHint"),
+                    style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                SpeechTranscript()
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.alpha(contentAlpha)) {
             Text(word("places"), style = MaterialTheme.typography.titleLarge)
             Text(word("tapHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        places.sortedByDescending { it.isHome }.forEach { place -> PlaceRow(place, false) }
+        places.sortedByDescending { it.isHome }.forEachIndexed { index, place ->
+            val rowAlpha by animateFloatAsState(
+                targetValue = if (entered) 1f else 0f,
+                animationSpec = tween(durationMillis = 350, delayMillis = 80 * index),
+                label = "placeRowAlpha"
+            )
+            PlaceRow(place, false, Modifier.alpha(rowAlpha))
+        }
         Text(word("handoffHint"), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.alpha(contentAlpha))
+    }
+
+    @Composable
+    private fun HomeMicrophone() {
+        val label = if (listening) word("stop") else word("speak")
+        val transition = rememberInfiniteTransition(label = "homeMicPulse")
+        val pulse by transition.animateFloat(
+            initialValue = 1f,
+            targetValue = if (listening) 1.32f else 1.08f,
+            animationSpec = infiniteRepeatable(tween(if (listening) 950 else 1800), RepeatMode.Restart),
+            label = "homeMicPulseScale"
+        )
+        val pulseAlpha by transition.animateFloat(
+            initialValue = if (listening) 0.28f else 0.12f,
+            targetValue = 0f,
+            animationSpec = infiniteRepeatable(tween(if (listening) 950 else 1800), RepeatMode.Restart),
+            label = "homeMicPulseAlpha"
+        )
+        val micScale by animateFloatAsState(
+            targetValue = if (listening) 1.08f else 1f,
+            animationSpec = tween(220),
+            label = "homeMicScale"
+        )
+        Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha),
+                modifier = Modifier.size(118.dp).scale(pulse)
+            ) {}
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (listening) 0.72f else 0.42f),
+                modifier = Modifier.size(126.dp)
+            ) {}
+            Surface(
+                onClick = { if (listening) stopListening() else requestMicrophone() },
+                shape = CircleShape,
+                shadowElevation = 10.dp,
+                color = if (listening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(96.dp).scale(micScale).semantics { contentDescription = label }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    RideIcon("mic", Modifier.size(42.dp), color = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+        }
     }
 
     @Composable
@@ -592,10 +765,10 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun PlaceRow(place: SavedPlace, editing: Boolean) {
+    private fun PlaceRow(place: SavedPlace, editing: Boolean, modifier: Modifier = Modifier) {
         Surface(onClick = {
             if (editing) openEditor(place, place.isHome) else choose(place)
-        }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
+        }, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             color = MaterialTheme.colorScheme.surface) {
             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
@@ -656,6 +829,11 @@ class MainActivity : ComponentActivity() {
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    OutlinedButton(onClick = { openTutorial("full", "settings") },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        RideIcon("arrow", Modifier.size(18.dp))
+                        Text(word("watchTutorial"))
+                    }
                     LargeButton(word("addPlace")) { openEditor(null, false) }
                     OutlinedButton(onClick = { screen = "home" },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
@@ -1044,10 +1222,16 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun LargeButton(label: String, enabled: Boolean = true, maxLines: Int = Int.MAX_VALUE, onClick: () -> Unit) {
+    private fun LargeButton(
+        label: String,
+        enabled: Boolean = true,
+        maxLines: Int = Int.MAX_VALUE,
+        modifier: Modifier = Modifier.fillMaxWidth(),
+        onClick: () -> Unit
+    ) {
         Button(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(18.dp),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
+            modifier = modifier.heightIn(min = 64.dp)) {
             Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,
                 maxLines = maxLines, overflow = TextOverflow.Ellipsis)
         }

@@ -159,7 +159,7 @@ class PilotFlowTest {
         tap("beta ka ghar")
         scenario!!.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
         ui.waitUntil(10_000) { ui.onAllNodesWithText(Words.get("en", "rideTo")).fetchSemanticsNodes().isNotEmpty() }
-        ui.onNodeWithText(Words.get("en", "speak")).performScrollTo().assertIsDisplayed()
+        ui.onNodeWithContentDescription(Words.get("en", "speak")).assertIsDisplayed()
     }
 
     @Test fun storageRoundTripAndEncodedUberDestination() {

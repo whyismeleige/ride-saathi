@@ -17,7 +17,13 @@ data class SavedPlace(
     val isHome: Boolean = false
 )
 
-data class Profile(val name: String = "", val language: String = "en", val completed: Boolean = false)
+data class Profile(
+    val name: String = "",
+    val language: String = "en",
+    val completed: Boolean = false,
+    val introSeen: Boolean = false,
+    val tutorialSeen: Boolean = false
+)
 
 class LocalStore(context: Context) {
     private val prefs = context.getSharedPreferences("ride_saathi", Context.MODE_PRIVATE)
@@ -25,13 +31,11 @@ class LocalStore(context: Context) {
     fun mapEndpoint(): String = prefs.getString("map_endpoint", ProviderEndpoints.MAP) ?: ProviderEndpoints.MAP
 
     fun profile(): Profile = try {
-        val data = JSONObject(prefs.getString("profile", "{}") ?: "{}")
-        Profile(data.optString("name"), data.optString("language", "en"), data.optBoolean("completed"))
+        parseProfile(prefs.getString("profile", "{}") ?: "{}")
     } catch (_: Exception) { Profile() }
 
     fun saveProfile(profile: Profile) {
-        prefs.edit().putString("profile", JSONObject().put("name", profile.name)
-            .put("language", profile.language).put("completed", profile.completed).toString()).apply()
+        prefs.edit().putString("profile", serializeProfile(profile)).apply()
     }
 
     fun places(): List<SavedPlace> = try {
@@ -57,6 +61,28 @@ class LocalStore(context: Context) {
                 .put("isHome", place.isHome))
         }
         prefs.edit().putString("places", items.toString()).apply()
+    }
+
+    companion object {
+        fun parseProfile(json: String): Profile {
+            val data = JSONObject(json)
+            return Profile(
+                name = data.optString("name"),
+                language = data.optString("language", "en"),
+                completed = data.optBoolean("completed"),
+                introSeen = data.optBoolean("introSeen"),
+                tutorialSeen = data.optBoolean("tutorialSeen")
+            )
+        }
+
+        fun serializeProfile(profile: Profile): String =
+            JSONObject()
+                .put("name", profile.name)
+                .put("language", profile.language)
+                .put("completed", profile.completed)
+                .put("introSeen", profile.introSeen)
+                .put("tutorialSeen", profile.tutorialSeen)
+                .toString()
     }
 }
 

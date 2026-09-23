@@ -108,7 +108,27 @@ object Words {
                   "selectSharedLocation" to "Select the shared destination",
                   "sharedSearchHint" to "The link includes an address. Check these search results and select the correct place.",
                   "sharedLocationOffline" to "Could not open the Google Maps link. Check your internet connection and share it again.",
-                  "sharedLocationUnresolved" to "Could not find a destination pin in that link. In Google Maps, select a place or drop a pin, then share it again."
+                  "sharedLocationUnresolved" to "Could not find a destination pin in that link. In Google Maps, select a place or drop a pin, then share it again.",
+                  "watchIntro" to "How Ride Saathi helps",
+                  "watchTutorial" to "Watch tutorial",
+                  "introTitle" to "Before we set up",
+                  "tutorialTitle" to "How to request a ride",
+                  "introFamilyTitle" to "Family sets it up once",
+                  "introFamilyBody" to "A family member can add your Home and your regular places.",
+                  "introPlacesTitle" to "Then rides are simpler",
+                  "introPlacesBody" to "After setup, you can speak or tap a saved place to start.",
+                  "tutorialSpeakTitle" to "Say or tap a place",
+                  "tutorialSpeakBody" to "Say a saved place like Doctor, or tap the place name on the screen.",
+                  "tutorialConfirmTitle" to "Check the destination",
+                  "tutorialConfirmBody" to "Ride Saathi asks you to confirm the place before doing anything else.",
+                  "tutorialPickupTitle" to "Pickup is your current location",
+                  "tutorialPickupBody" to "Ride Saathi uses your phone location only to fill the pickup point.",
+                  "tutorialUberTitle" to "Finish in Uber",
+                  "tutorialUberBody" to "Uber opens with the destination filled. Choose the ride and book inside Uber.",
+                  "replayAudio" to "Hear this again",
+                  "skipTutorial" to "Skip",
+                  "continueSetup" to "Continue setup",
+                  "startUsing" to "Start using Ride Saathi"
           )
   private val hi =
           mapOf(
@@ -217,7 +237,27 @@ object Words {
                   "selectSharedLocation" to "शेयर की गई मंज़िल चुनें",
                   "sharedSearchHint" to "लिंक में पता मिला है। खोज के नतीजे जाँचें और सही जगह चुनें।",
                   "sharedLocationOffline" to "Google Maps लिंक नहीं खुल सका। इंटरनेट कनेक्शन जाँचें और फिर से शेयर करें।",
-                  "sharedLocationUnresolved" to "इस लिंक में मंज़िल का पिन नहीं मिला। Google Maps में कोई जगह चुनें या पिन लगाएँ, फिर से शेयर करें।"
+                  "sharedLocationUnresolved" to "इस लिंक में मंज़िल का पिन नहीं मिला। Google Maps में कोई जगह चुनें या पिन लगाएँ, फिर से शेयर करें।",
+                  "watchIntro" to "Ride Saathi कैसे मदद करता है",
+                  "watchTutorial" to "ट्यूटोरियल देखें",
+                  "introTitle" to "सेटअप से पहले",
+                  "tutorialTitle" to "राइड कैसे माँगें",
+                  "introFamilyTitle" to "परिवार एक बार सेटअप करता है",
+                  "introFamilyBody" to "परिवार का कोई सदस्य आपका घर और रोज़ जाने वाली जगहें जोड़ सकता है।",
+                  "introPlacesTitle" to "फिर राइड आसान हो जाती है",
+                  "introPlacesBody" to "सेटअप के बाद, शुरू करने के लिए जगह बोलें या उस पर टैप करें।",
+                  "tutorialSpeakTitle" to "जगह बोलें या टैप करें",
+                  "tutorialSpeakBody" to "Doctor जैसी सेव की हुई जगह बोलें, या स्क्रीन पर जगह का नाम टैप करें।",
+                  "tutorialConfirmTitle" to "मंज़िल जाँचें",
+                  "tutorialConfirmBody" to "Ride Saathi आगे बढ़ने से पहले आपसे जगह कन्फर्म करवाता है।",
+                  "tutorialPickupTitle" to "पिकअप आपकी अभी की लोकेशन है",
+                  "tutorialPickupBody" to "Ride Saathi पिकअप भरने के लिए सिर्फ़ आपके फ़ोन की लोकेशन इस्तेमाल करता है।",
+                  "tutorialUberTitle" to "Uber में पूरा करें",
+                  "tutorialUberBody" to "Uber मंज़िल के साथ खुलता है। राइड चुनें और बुकिंग Uber में करें।",
+                  "replayAudio" to "फिर सुनें",
+                  "skipTutorial" to "छोड़ें",
+                  "continueSetup" to "सेटअप जारी रखें",
+                  "startUsing" to "Ride Saathi शुरू करें"
           )
   private val te =
           mapOf(
@@ -326,7 +366,27 @@ object Words {
                   "servicesSaved" to "సేవ URLలు సేవ్ అయ్యాయి.",
                   "mapUnavailable" to "మ్యాప్ లోడ్ కాలేదు. ఇంటర్నెట్ చూసి మళ్లీ ప్రయత్నించండి.",
                   "showMore" to "మరింత చూడండి",
-                  "showLess" to "తక్కువగా చూడండి"
+                  "showLess" to "తక్కువగా చూడండి",
+                  "watchIntro" to "Ride Saathi ఎలా సహాయం చేస్తుంది",
+                  "watchTutorial" to "ట్యుటోరియల్ చూడండి",
+                  "introTitle" to "సెటప్‌కు ముందు",
+                  "tutorialTitle" to "రైడ్ ఎలా అడగాలి",
+                  "introFamilyTitle" to "కుటుంబం ఒకసారి సెటప్ చేస్తుంది",
+                  "introFamilyBody" to "కుటుంబ సభ్యులు మీ ఇల్లు మరియు మీరు తరచుగా వెళ్లే స్థలాలను జోడించవచ్చు.",
+                  "introPlacesTitle" to "తర్వాత రైడ్‌లు సులభం",
+                  "introPlacesBody" to "సెటప్ తర్వాత, ప్రారంభించడానికి స్థలం చెప్పండి లేదా నొక్కండి.",
+                  "tutorialSpeakTitle" to "స్థలం చెప్పండి లేదా నొక్కండి",
+                  "tutorialSpeakBody" to "Doctor లాంటి సేవ్ చేసిన స్థలం చెప్పండి, లేదా స్క్రీన్‌పై స్థలం పేరును నొక్కండి.",
+                  "tutorialConfirmTitle" to "గమ్యస్థానం చూసుకోండి",
+                  "tutorialConfirmBody" to "ముందుకు వెళ్లే ముందు Ride Saathi మీతో స్థలాన్ని నిర్ధారించుకుంటుంది.",
+                  "tutorialPickupTitle" to "పికప్ మీ ప్రస్తుత స్థానం",
+                  "tutorialPickupBody" to "పికప్ నింపడానికి Ride Saathi మీ ఫోన్ లొకేషన్ మాత్రమే ఉపయోగిస్తుంది.",
+                  "tutorialUberTitle" to "Uberలో పూర్తి చేయండి",
+                  "tutorialUberBody" to "Uber గమ్యస్థానంతో తెరుచుకుంటుంది. రైడ్ ఎంచుకుని Uberలో బుక్ చేయండి.",
+                  "replayAudio" to "మళ్లీ వినండి",
+                  "skipTutorial" to "దాటవేయి",
+                  "continueSetup" to "సెటప్ కొనసాగించు",
+                  "startUsing" to "Ride Saathi ప్రారంభించు"
           )
 
   fun get(language: String, key: String): String =
