@@ -10,11 +10,21 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.net.toUri
@@ -36,6 +46,11 @@ fun MapPreview(mapUrl: String, language: String) {
         }
         val displayUrl = if (bundled) mapUrl.toUri().buildUpon()
             .authority(ASSET_HOST).path("/assets/map/index.html").build().toString() else mapUrl
+        val mapAlpha by animateFloatAsState(
+            targetValue = if (status == MapStatus.Ready) 1f else 0.72f,
+            animationSpec = tween(260, easing = FastOutSlowInEasing),
+            label = "mapPreviewAlpha"
+        )
 
         DisposableEffect(Unit) {
             onDispose { disposed = true }
@@ -109,13 +124,26 @@ fun MapPreview(mapUrl: String, language: String) {
             },
             onRelease = { it.stopLoading(); it.destroy() },
             modifier = Modifier.fillMaxWidth().height(260.dp).clip(MaterialTheme.shapes.medium)
+                .alpha(mapAlpha)
         )
-        if (status == MapStatus.Loading) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+        AnimatedVisibility(
+            visible = status == MapStatus.Loading,
+            enter = fadeIn(tween(180)) + scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.92f),
+            exit = fadeOut(tween(160)) + scaleOut(tween(180), targetScale = 0.92f)
+        ) {
+            CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+        }
         Text(Words.get(language, "mapAttribution"), style = MaterialTheme.typography.bodySmall)
-        if (status == MapStatus.Error) {
-            Text(Words.get(language, "mapUnavailable"), color = MaterialTheme.colorScheme.error)
-            OutlinedButton(onClick = { attempt++ }, modifier = Modifier.fillMaxWidth()) {
-                Text(Words.get(language, "retry"))
+        AnimatedVisibility(
+            visible = status == MapStatus.Error,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(160))
+        ) {
+            Column(Modifier.animateContentSize(tween(220, easing = FastOutSlowInEasing))) {
+                Text(Words.get(language, "mapUnavailable"), color = MaterialTheme.colorScheme.error)
+                OutlinedButton(onClick = { attempt++ }, modifier = Modifier.fillMaxWidth()) {
+                    Text(Words.get(language, "retry"))
+                }
             }
         }
     }

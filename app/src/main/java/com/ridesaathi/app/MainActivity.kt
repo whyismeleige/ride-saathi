@@ -13,12 +13,27 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -30,6 +45,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
@@ -41,6 +58,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -418,38 +436,66 @@ class MainActivity : ComponentActivity() {
                     RideIcon("back", Modifier.size(18.dp)); Text(word("back"))
                 }
             }
-            key(screen, if (screen == "destinationSearch") destinationSearch?.let { it.page to it.editing } else null) {
-                if (screen == "editor") {
-                    Editor(Modifier.weight(1f))
-                } else if (screen == "settings") {
-                    Settings(Modifier.weight(1f))
-                } else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    when (screen) {
-                        "onboarding" -> Onboarding()
-                        "tutorial" -> Tutorial()
-                        "home" -> Home()
-                        "confirm" -> Confirmation()
-                        "clarify", "sharedChoices" -> Clarification()
-                        "destinationSearch" -> DestinationSearchScreen()
+            AnimatedContent(
+                targetState = screen,
+                transitionSpec = {
+                    val forward = screenOrder(targetState) >= screenOrder(initialState)
+                    val slideIn = slideInHorizontally(
+                        animationSpec = tween(360, easing = FastOutSlowInEasing),
+                        initialOffsetX = { width -> if (forward) width / 5 else -width / 5 }
+                    )
+                    val slideOut = slideOutHorizontally(
+                        animationSpec = tween(280, easing = FastOutSlowInEasing),
+                        targetOffsetX = { width -> if (forward) -width / 6 else width / 6 }
+                    )
+                    (fadeIn(tween(260)) + slideIn + scaleIn(tween(360, easing = FastOutSlowInEasing), initialScale = 0.98f))
+                        .togetherWith(fadeOut(tween(200)) + slideOut + scaleOut(tween(240), targetScale = 0.98f))
+                        .using(SizeTransform(clip = false))
+                },
+                modifier = Modifier.weight(1f),
+                label = "screenTransition"
+            ) { activeScreen ->
+                key(activeScreen, if (activeScreen == "destinationSearch") destinationSearch?.let { it.page to it.editing } else null) {
+                    if (activeScreen == "editor") {
+                        Editor(Modifier.fillMaxSize())
+                    } else if (activeScreen == "settings") {
+                        Settings(Modifier.fillMaxSize())
+                    } else Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        when (activeScreen) {
+                            "onboarding" -> Onboarding()
+                            "tutorial" -> Tutorial()
+                            "home" -> Home()
+                            "confirm" -> Confirmation()
+                            "clarify", "sharedChoices" -> Clarification()
+                            "destinationSearch" -> DestinationSearchScreen()
+                        }
                     }
                 }
             }
-            if (message.isNotBlank()) Surface(
-                color = if (handoffInProgress || resolvingSharedLocation) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
-                modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(message, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyLarge)
-                    if (resolvingSharedLocation) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth())
-                        TextButton(onClick = { cancelSharedLocation() }) { Text(word("cancel")) }
-                    }
-                    if (message == word("searchLocationRequired")) SearchLocationActions()
-                    if (message == word("micDenied") || message == word("locationDenied")) {
-                        TextButton(onClick = {
-                            startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                android.net.Uri.parse("package:$packageName")))
-                        }) { Text(word("openAppSettings")) }
+            AnimatedVisibility(
+                visible = message.isNotBlank(),
+                enter = fadeIn(tween(180)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it / 2 },
+                exit = fadeOut(tween(160)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 2 }
+            ) {
+                Surface(
+                    color = if (handoffInProgress || resolvingSharedLocation) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp).animateContentSize(tween(260, easing = FastOutSlowInEasing))) {
+                        Text(message, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }, style = MaterialTheme.typography.bodyLarge)
+                        AnimatedVisibility(resolvingSharedLocation, enter = fadeIn(), exit = fadeOut()) {
+                            Column {
+                                LinearProgressIndicator(Modifier.fillMaxWidth())
+                                TextButton(onClick = { cancelSharedLocation() }) { Text(word("cancel")) }
+                            }
+                        }
+                        if (message == word("searchLocationRequired")) SearchLocationActions()
+                        if (message == word("micDenied") || message == word("locationDenied")) {
+                            TextButton(onClick = {
+                                startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.parse("package:$packageName")))
+                            }) { Text(word("openAppSettings")) }
+                        }
                     }
                 }
             }
@@ -457,16 +503,33 @@ class MainActivity : ComponentActivity() {
                 "destinationSearch" -> StickyMicrophone(enabled = destinationSearch?.loading == false)
                 "confirm" -> StickyMicrophone(enabled = !handoffInProgress)
             }
-            if (screen == "onboarding") {
+            AnimatedVisibility(
+                visible = screen == "onboarding",
+                enter = fadeIn(tween(180)) + slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it },
+                exit = fadeOut(tween(160)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it }
+            ) {
                 Surface(shadowElevation = 8.dp) { OnboardingActions() }
             }
         }
     }
 
+    private fun screenOrder(value: String) = when (value) {
+        "onboarding" -> 0
+        "tutorial" -> 1
+        "home" -> 2
+        "settings" -> 3
+        "editor" -> 4
+        "destinationSearch" -> 5
+        "clarify", "sharedChoices" -> 6
+        "confirm" -> 7
+        else -> 0
+    }
+
     @Composable
     private fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
         Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.animateContentSize(tween(260, easing = FastOutSlowInEasing))) {
             Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
         }
     }
@@ -766,11 +829,24 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun PlaceRow(place: SavedPlace, editing: Boolean, modifier: Modifier = Modifier) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val pressed by interactionSource.collectIsPressedAsState()
+        val scale by animateFloatAsState(
+            targetValue = if (pressed) 0.985f else 1f,
+            animationSpec = spring(dampingRatio = 0.74f, stiffness = 420f),
+            label = "placeRowPressScale"
+        )
+        val elevation by animateDpAsState(
+            targetValue = if (pressed) 0.dp else 2.dp,
+            animationSpec = tween(180),
+            label = "placeRowElevation"
+        )
         Surface(onClick = {
             if (editing) openEditor(place, place.isHome) else choose(place)
-        }, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
+        }, interactionSource = interactionSource, modifier = modifier.fillMaxWidth().scale(scale), shape = MaterialTheme.shapes.medium,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            color = MaterialTheme.colorScheme.surface) {
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = elevation) {
             Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primaryContainer) {
@@ -792,7 +868,7 @@ class MainActivity : ComponentActivity() {
     ) {
         var expanded by remember(place.id, place.address) { mutableStateOf(false) }
         var overflows by remember(place.id, place.address) { mutableStateOf(false) }
-        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().animateContentSize(tween(260, easing = FastOutSlowInEasing))) {
             Text(
                 place.address,
                 modifier = Modifier.fillMaxWidth(),
@@ -1171,9 +1247,11 @@ class MainActivity : ComponentActivity() {
                 keyboard?.hide(); beginDestinationSearch(state.query, extractPhrase = false)
             }
         } else Text(state.query, style = MaterialTheme.typography.titleLarge)
-        if (state.loading) {
-            Text(word("searchingDestination"))
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+        AnimatedVisibility(state.loading, enter = fadeIn(tween(180)), exit = fadeOut(tween(160))) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(word("searchingDestination"))
+                LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
         }
         if (state.error == "searchLocationRequired") SearchLocationActions()
         state.error?.let { Text(word(it), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
@@ -1191,6 +1269,11 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun StickyMicrophone(enabled: Boolean) {
         val label = if (listening) word("stop") else word("speak")
+        val micScale by animateFloatAsState(
+            targetValue = if (listening) 1.08f else 1f,
+            animationSpec = spring(dampingRatio = 0.68f, stiffness = 360f),
+            label = "stickyMicScale"
+        )
         Surface(modifier = Modifier.fillMaxWidth(), tonalElevation = 3.dp, shadowElevation = 4.dp) {
             Column(Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1200,11 +1283,13 @@ class MainActivity : ComponentActivity() {
                     shape = CircleShape, contentPadding = PaddingValues(0.dp),
                     colors = ButtonDefaults.buttonColors(containerColor =
                         if (listening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.size(72.dp).semantics { contentDescription = label }) {
+                    modifier = Modifier.size(72.dp).scale(micScale).semantics { contentDescription = label }) {
                     RideIcon("mic", Modifier.size(32.dp), color = LocalContentColor.current)
                 }
-                if (listening) Text(word("listening"), style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                AnimatedVisibility(listening, enter = fadeIn(tween(180)), exit = fadeOut(tween(160))) {
+                    Text(word("listening"), style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                }
             }
         }
     }
@@ -1229,9 +1314,17 @@ class MainActivity : ComponentActivity() {
         modifier: Modifier = Modifier.fillMaxWidth(),
         onClick: () -> Unit
     ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val pressed by interactionSource.collectIsPressedAsState()
+        val scale by animateFloatAsState(
+            targetValue = if (pressed && enabled) 0.98f else 1f,
+            animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f),
+            label = "largeButtonPressScale"
+        )
         Button(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(18.dp),
+            interactionSource = interactionSource,
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-            modifier = modifier.heightIn(min = 64.dp)) {
+            modifier = modifier.heightIn(min = 64.dp).scale(scale).animateContentSize(tween(220, easing = FastOutSlowInEasing))) {
             Text(label, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center,
                 maxLines = maxLines, overflow = TextOverflow.Ellipsis)
         }
