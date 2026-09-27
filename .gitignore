@@ -2,10 +2,10 @@
 .gradle/
 .kotlin/
 build/
-app/build/
+android/app/build/
 
 # Android Studio / IntelliJ
-.idea/
+android/.idea/
 *.iml
 *.ipr
 *.iws

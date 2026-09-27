@@ -1,13 +1,13 @@
 # V0 pilot checks
 
-Use the debug APK at `app/build/outputs/apk/debug/app-debug.apk` for a supervised pilot. Installing with `adb install -r` preserves saved places. The release build is unsigned and is not the installable pilot artifact.
+Use the debug APK at `android/app/build/outputs/apk/debug/app-debug.apk` for a supervised pilot. Installing with `adb install -r` preserves saved places. The release build is unsigned and is not the installable pilot artifact.
 
 ## Automated checks
 
 ```sh
-./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug
-node --test app/src/test/js/map-preview.test.cjs
-./gradlew :app:connectedQaAndroidTest
+./android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug
+node --test android/app/src/test/js/map-preview.test.cjs
+./android/gradlew -p android :app:connectedQaAndroidTest
 ```
 
 Device tests use the separate `com.ridesaathi.app.qa` application so test setup cannot erase addresses in `com.ridesaathi.app`. They inject final speech transcripts to exercise the application flow; microphone recognition and spoken output still need a person speaking on each target phone. Device screenshots are saved in the QA app's external files directory. Gradle normally uninstalls the QA app afterward; retain it while reviewing screenshots with `-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true`. To check 200% text inside the QA app without changing the phone's settings, also pass `-Pandroid.testInstrumentationRunnerArguments.fontScale=2.0`. Remove the QA packages after review with `adb uninstall com.ridesaathi.app.qa.test` and `adb uninstall com.ridesaathi.app.qa`.

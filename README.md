@@ -8,7 +8,8 @@ The app does not book the ride itself. Uber still owns ride selection, pricing, 
 
 Ride Saathi currently includes:
 
-- Jetpack Compose Android app in `app/`
+- A standalone product showcase website in `website/`
+- Jetpack Compose Android app in `android/app/`
 - One-time onboarding with language, rider name, mandatory Home, and optional saved destinations
 - Local profile and saved-place persistence through Android `SharedPreferences`
 - English, Hindi, and Telugu UI text support
@@ -68,12 +69,30 @@ flowchart TD
 
 ## Repository Layout
 
+Product code is grouped by the thing it runs: the public-facing website, the
+Android app, and the API service. The complete Android Studio/Gradle project
+lives in `android/`.
+
 | Path | Purpose |
 | --- | --- |
-| `app/` | Android app, Compose UI, domain logic, map assets, JVM and instrumentation tests |
+| `website/` | Responsive Ride Saathi showcase site (plain HTML, CSS, and JavaScript) |
+| `android/` | Complete Android Studio/Gradle project, including the app module and wrapper |
+| `android/app/` | Android app, Compose UI, domain logic, map assets, JVM and instrumentation tests |
 | `backend/` | FastAPI place-search proxy for Ola Maps |
-| `docs/PILOT_TESTING.md` | Manual pilot checklist for family/elderly-user testing |
-| `docs/VALIDATION.md` | Latest validation notes and known test gaps |
+| `docs/` | Product, pilot-testing, validation, and codebase guides |
+
+## Website
+
+The site is a static showcase with no package install or build step. Open
+`website/index.html` directly, or serve the repository root locally:
+
+```sh
+python -m http.server 8080
+```
+
+Then visit `http://localhost:8080/website/`. The website is informational; the
+Android app remains the product experience and the backend remains a separate
+service.
 
 ## Android Setup
 
@@ -87,25 +106,25 @@ Requirements:
 Build the app:
 
 ```sh
-./gradlew :app:assembleDebug
+./android/gradlew -p android :app:assembleDebug
 ```
 
 Run JVM tests:
 
 ```sh
-./gradlew :app:testDebugUnitTest
+./android/gradlew -p android :app:testDebugUnitTest
 ```
 
 Run the map preview JavaScript regression test:
 
 ```sh
-node --test app/src/test/js/map-preview.test.cjs
+node --test android/app/src/test/js/map-preview.test.cjs
 ```
 
 Run connected QA instrumentation tests:
 
 ```sh
-./gradlew :app:connectedQaAndroidTest
+./android/gradlew -p android :app:connectedQaAndroidTest
 ```
 
 The `qa` build type uses the separate package `com.ridesaathi.app.qa`, so device tests do not overwrite normal app data in `com.ridesaathi.app`.
@@ -130,7 +149,7 @@ Set `OLA_MAPS_API_KEY` in `backend/.env`, then run:
 uvicorn app.main:app --reload --env-file .env
 ```
 
-The default local API URL is `http://localhost:8000`. Android emulators reach the host machine at `http://10.0.2.2:8000`, which is the debug/QA fallback in `app/build.gradle.kts`.
+The default local API URL is `http://localhost:8000`. Android emulators reach the host machine at `http://10.0.2.2:8000`, which is the debug/QA fallback in `android/app/build.gradle.kts`.
 
 Run backend tests:
 
@@ -147,7 +166,7 @@ pytest -q
 The Android build resolves `API_BASE_URL` in this order:
 
 1. `API_BASE_URL` environment variable
-2. `API_BASE_URL` in root `local.properties`
+2. `API_BASE_URL` in `android/local.properties`
 3. Build-type fallback
 
 Current fallbacks:
@@ -161,7 +180,7 @@ Current fallbacks:
 For a real QA or release build, provide an HTTPS backend URL:
 
 ```sh
-API_BASE_URL=https://your-backend.example.com ./gradlew :app:assembleRelease
+API_BASE_URL=https://your-backend.example.com ./android/gradlew -p android :app:assembleRelease
 ```
 
 Release builds should not use cleartext HTTP.
@@ -171,8 +190,8 @@ Release builds should not use cleartext HTTP.
 Useful full-check command set:
 
 ```sh
-./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug
-node --test app/src/test/js/map-preview.test.cjs
+./android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug
+node --test android/app/src/test/js/map-preview.test.cjs
 cd backend && source .venv/bin/activate && pytest -q
 ```
 
