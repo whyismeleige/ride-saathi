@@ -35,3 +35,6 @@ __pycache__/
 # OS-generated files
 .DS_Store
 Thumbs.db
+
+# Key Tools Generated files
+*.jks 

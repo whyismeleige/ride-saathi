@@ -41,6 +41,28 @@ android {
     buildConfigField("String", "API_BASE_URL", "\"${escaped(apiBaseUrl(""))}\"")
     testInstrumentationRunner = "com.ridesaathi.app.PilotTestRunner"
   }
+  signingConfigs {
+    create("beta") {
+        val keystoreFile =
+            localConfig.getProperty("BETA_KEYSTORE_FILE")
+                ?: error("BETA_KEYSTORE_FILE is not configured")
+
+        storeFile = rootProject.file(keystoreFile)
+        storePassword =
+            localConfig.getProperty("BETA_KEYSTORE_PASSWORD")
+                ?: error("BETA_KEYSTORE_PASSWORD is not configured")
+
+        keyAlias =
+            localConfig.getProperty("BETA_KEY_ALIAS")
+                ?: localConfig.getProperty("BETA_KEYSTORE_ALIAS")
+                ?: error("BETA_KEY_ALIAS or BETA_KEYSTORE_ALIAS is not configured")
+
+        keyPassword =
+            localConfig.getProperty("BETA_KEY_PASSWORD")
+                ?: localConfig.getProperty("BETA_KEYSTORE_PASS")
+                ?: error("BETA_KEY_PASSWORD or BETA_KEYSTORE_PASS is not configured")
+    }
+}
   buildTypes {
     getByName("debug") {
       // Android emulators reach the host machine's localhost at 10.0.2.2.
@@ -50,18 +72,20 @@ android {
               "\"${escaped(apiBaseUrl("http://10.0.2.2:8000"))}\""
       )
     }
-    create("qa") {
-      initWith(getByName("debug"))
-      applicationIdSuffix = ".qa"
-      matchingFallbacks += listOf("debug")
-      // Point this at the staging backend (or a local dev backend) via
-      // API_BASE_URL before building a QA/dev APK.
-      buildConfigField(
-              "String",
-              "API_BASE_URL",
-              "\"${escaped(apiBaseUrl("http://10.0.2.2:8000"))}\""
-      )
-    }
+create("qa") {
+    initWith(getByName("debug"))
+
+    applicationIdSuffix = ".qa"
+    matchingFallbacks += listOf("debug")
+
+    signingConfig = signingConfigs.getByName("beta")
+
+    buildConfigField(
+        "String",
+        "API_BASE_URL",
+        "\"${escaped(apiBaseUrl("http://10.0.2.2:8000"))}\""
+    )
+}
     getByName("release") {
       // Release expects a production HTTPS API_BASE_URL to be supplied at
       // build time. A blank value keeps the APK unconfigured (NOT_CONFIGURED)
