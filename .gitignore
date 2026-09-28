@@ -38,3 +38,7 @@ Thumbs.db
 
 # Key Tools Generated files
 *.jks 
+
+# Android APK's and other packages
+*.apk
+*.aab
