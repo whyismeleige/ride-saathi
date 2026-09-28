@@ -33,7 +33,7 @@ import com.ridesaathi.app.core.ui.components.RideIcon
 import com.ridesaathi.app.core.ui.components.StickyMicrophone
 import com.ridesaathi.app.feature.destination.DestinationSearchScreen
 import com.ridesaathi.app.feature.home.HomeRoute
-import com.ridesaathi.app.feature.onboarding.OnboardingActionsRoute
+import com.ridesaathi.app.feature.onboarding.OnboardingStep
 import com.ridesaathi.app.feature.onboarding.OnboardingRoute
 import com.ridesaathi.app.feature.places.PlaceEditorRoute
 import com.ridesaathi.app.feature.ride.RideConfirmationRoute
@@ -45,7 +45,8 @@ import com.ridesaathi.app.navigation.SearchLocationActions
 @Composable
 internal fun AppSession.AppNavigation() {
     BackHandler(
-        enabled = shared.state.resolvingSharedLocation || screen !in listOf(
+        enabled = (screen == AppScreen.Onboarding && onboarding.step != OnboardingStep.Language) ||
+            shared.state.resolvingSharedLocation || screen !in listOf(
             AppScreen.Home,
             AppScreen.Onboarding
         )
@@ -83,7 +84,7 @@ internal fun AppSession.AppNavigation() {
             }) {
                 Text(word("settings"))
             }
-            else if (screen != AppScreen.Onboarding) TextButton(onClick = { navigateBack() }) {
+            else if (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language) TextButton(onClick = { navigateBack() }) {
                 RideIcon("back", Modifier.size(18.dp)); Text(word("back"))
             }
         }
@@ -121,12 +122,13 @@ internal fun AppSession.AppNavigation() {
                     PlaceEditorRoute(Modifier.fillMaxSize())
                 } else if (activeScreen == AppScreen.Settings) {
                     SettingsRoute(Modifier.fillMaxSize())
+                } else if (activeScreen == AppScreen.Onboarding) {
+                    OnboardingRoute(Modifier.fillMaxSize())
                 } else Column(
                     Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     when (activeScreen) {
-                        AppScreen.Onboarding -> OnboardingRoute()
                         AppScreen.Tutorial -> TutorialRoute()
                         AppScreen.Home -> HomeRoute()
                         AppScreen.RideConfirmation -> RideConfirmationRoute()
@@ -200,23 +202,6 @@ internal fun AppSession.AppNavigation() {
             )
 
             else -> Unit
-        }
-        AnimatedVisibility(
-            visible = screen == AppScreen.Onboarding,
-            enter = fadeIn(tween(180)) + slideInVertically(
-                tween(
-                    300,
-                    easing = FastOutSlowInEasing
-                )
-            ) { it },
-            exit = fadeOut(tween(160)) + slideOutVertically(
-                tween(
-                    220,
-                    easing = FastOutSlowInEasing
-                )
-            ) { it }
-        ) {
-            Surface(shadowElevation = 8.dp) { OnboardingActionsRoute() }
         }
     }
 }

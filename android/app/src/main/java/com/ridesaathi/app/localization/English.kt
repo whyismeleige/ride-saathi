@@ -1,6 +1,17 @@
 package com.ridesaathi.app.localization
 
 internal val en = mapOf(
+    "onboardingStep" to "Step {current} of {total}",
+    "onboardingLanguageHint" to "Feel at home. Choose the language you’re most comfortable with.",
+    "onboardingNameTitle" to "What should we call you?",
+    "onboardingNameHint" to "Let’s make Ride Saathi feel a little more like you.",
+    "onboardingHomeTitle" to "A familiar place to start",
+    "onboardingHomeHint" to "Save your home once, so it’s easy to choose whenever you need a ride back.",
+    "onboardingHomeSearch" to "Search for your home address and check the pin before saving.",
+    "onboardingHomeSaved" to "Home is saved. You can tap it below to make changes.",
+    "onboardingPlacesTitle" to "Your everyday places",
+    "onboardingPlacesHint" to "Add your doctor, family, or a favourite spot. This is optional — you can add more in Settings anytime.",
+
     "searchDestinations" to "Choose your destination",
     "searchQuery" to "Place name and area",
     "searchingDestination" to "Searching for places…",
@@ -111,6 +122,8 @@ internal val en = mapOf(
     "watchTutorial" to "Watch tutorial",
     "introTitle" to "Before we set up",
     "tutorialTitle" to "How to request a ride",
+    "introAboutTitle" to "Meet Ride Saathi",
+    "introAboutBody" to "Ride Saathi helps you book rides more easily. Say your destination or tap a saved place. Then finish your booking in Uber.",
     "introFamilyTitle" to "Family sets it up once",
     "introFamilyBody" to "A family member can add your Home and your regular places.",
     "introPlacesTitle" to "Then rides are simpler",

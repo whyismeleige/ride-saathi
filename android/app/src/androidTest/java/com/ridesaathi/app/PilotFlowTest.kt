@@ -10,6 +10,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.ridesaathi.app.core.deeplink.UberHandoff
 import com.ridesaathi.app.data.local.LocalStore
+import com.ridesaathi.app.domain.model.PlaceCandidate
+import com.ridesaathi.app.feature.places.PlaceEditorAction
 import com.ridesaathi.app.domain.model.Profile
 import com.ridesaathi.app.domain.model.SavedPlace
 import com.ridesaathi.app.localization.Words
@@ -166,16 +168,36 @@ class PilotFlowTest {
         assertEquals("en", LocalStore(context).profile().language)
     }
 
+    private fun completeIntroduction(language: String) {
+        val titles = listOf("introAboutTitle", "introFamilyTitle", "introPlacesTitle", "tutorialSpeakTitle",
+            "tutorialConfirmTitle", "tutorialPickupTitle", "tutorialUberTitle")
+        titles.forEach { title ->
+            ui.onNodeWithText(Words.get(language, title)).assertExists()
+            ui.onNodeWithText(Words.get(language, "continue")).performClick()
+            ui.waitForIdle()
+        }
+        ui.onNodeWithText(Words.get(language, "onboardingNameTitle")).assertExists()
+    }
+
+    private fun captureSetup(stage: String) {
+        ui.waitForIdle()
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(context.getExternalFilesDir(null), "onboarding-$stage.png").outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
+    }
+
     @Test
     fun onboardingOffersTelugu() {
         launch(completed = false, saved = emptyList())
-        tap("English")
-        ui.onNodeWithText("తెలుగు").performClick()
-        ui.onNodeWithText(Words.get("te", "introTitle")).assertExists()
-        ui.onNodeWithText(Words.get("te", "back")).performClick()
-        ui.onNodeWithText(Words.get("te", "welcome")).assertExists()
+        tap("తెలుగు")
+        ui.onNodeWithText(Words.get("te", "language")).assertExists()
         assertEquals("te", LocalStore(context).profile().language)
-        tap(Words.get("te", "addHome"))
+        ui.onNodeWithText(Words.get("te", "continue")).performClick()
+        completeIntroduction("te")
+        ui.onNodeWithText(Words.get("te", "continue")).performClick()
+        ui.onNodeWithText(Words.get("te", "addHome")).performClick()
         ui.onNodeWithContentDescription(Words.get("te", "search")).assertExists()
     }
 
@@ -183,14 +205,92 @@ class PilotFlowTest {
     fun onboardingRequiresHomeAndOffersHindi() {
         launch(completed = false, saved = emptyList())
         ui.onNodeWithText(Words.get("en", "finish")).assertDoesNotExist()
-        tap("English")
-        ui.onNodeWithText("हिन्दी").performClick()
-        ui.onNodeWithText(Words.get("hi", "introTitle")).assertExists()
-        ui.onNodeWithText(Words.get("hi", "back")).performClick()
-        tap(Words.get("hi", "addHome"))
+        ui.onNodeWithText(Words.get("en", "name")).assertDoesNotExist()
+        tap("हिन्दी")
+        ui.onNodeWithText(Words.get("hi", "continue")).performClick()
+        completeIntroduction("hi")
+        ui.onNodeWithText(Words.get("hi", "continue")).performClick()
+        ui.onNodeWithText(Words.get("hi", "addHome")).performClick()
         ui.onNodeWithContentDescription(Words.get("hi", "search")).assertExists()
         ui.onNodeWithText(Words.get("hi", "save")).assertDoesNotExist()
         ui.onNode(hasSetTextAction() and hasText(Words.get("hi", "address"))).assertIsDisplayed()
+    }
+
+    @Test
+    fun guidedSetupPreservesProgressAndSavedPlaces() {
+        launch(completed = false, saved = emptyList())
+        captureSetup("language")
+        ui.onNodeWithText(Words.get("en", "continue")).performClick()
+        captureSetup("introduction")
+        // Both system and visible Back traverse setup without marking it complete.
+        scenario!!.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        ui.onNodeWithText(Words.get("en", "language")).assertExists()
+        ui.onNodeWithText(Words.get("en", "continue")).performClick()
+        completeIntroduction("en")
+        assertTrue(LocalStore(context).profile().tutorialSeen)
+        ui.onNode(hasSetTextAction()).performTextClearance()
+        ui.onNodeWithText(Words.get("en", "continue")).assertIsNotEnabled()
+        ui.onNode(hasSetTextAction()).performTextInput("Ananya")
+        scenario!!.recreate()
+        ui.waitForIdle()
+        ui.onNodeWithText(Words.get("en", "onboardingNameTitle")).assertExists()
+        ui.onNode(hasSetTextAction()).assertTextContains("Ananya")
+        captureSetup("name")
+        ui.onNodeWithText(Words.get("en", "continue")).performClick()
+        captureSetup("home")
+        ui.onNodeWithText(Words.get("en", "addHome")).performClick()
+        ui.onNodeWithText(Words.get("en", "back")).performClick()
+        ui.onNodeWithText(Words.get("en", "onboardingHomeTitle")).assertExists()
+        ui.onNodeWithText(Words.get("en", "addHome")).performClick()
+        scenario!!.onActivity {
+            it.session.editor.onAction(PlaceEditorAction.SelectAddress(PlaceCandidate(home.address, home.latitude, home.longitude)))
+            it.session.editor.onAction(PlaceEditorAction.Save)
+        }
+        ui.onNodeWithText(Words.get("en", "onboardingHomeSaved")).assertExists()
+        ui.onNodeWithText(Words.get("en", "continue")).performClick()
+        captureSetup("places")
+        assertFalse(LocalStore(context).profile().completed)
+        tap(Words.get("en", "addPlace"))
+        scenario!!.onActivity {
+            it.session.editor.onAction(PlaceEditorAction.SelectAddress(PlaceCandidate(son.address, son.latitude, son.longitude)))
+            it.session.editor.onAction(PlaceEditorAction.Rename("Family"))
+            it.session.editor.onAction(PlaceEditorAction.Save)
+        }
+        ui.onNodeWithText("Family").assertExists()
+        scenario!!.recreate()
+        ui.waitForIdle()
+        ui.onNodeWithText(Words.get("en", "onboardingPlacesTitle")).assertExists()
+        ui.onNodeWithText("Family").assertExists()
+        ui.onNodeWithText(Words.get("en", "finish")).performClick()
+        ui.onNodeWithText(Words.get("en", "rideTo")).assertExists()
+        assertTrue(LocalStore(context).profile().completed)
+        assertEquals(2, LocalStore(context).places().size)
+    }
+
+    @Test
+    fun extraPlacesAreOptional() {
+        launch(completed = false, saved = listOf(home))
+        ui.onNodeWithText(Words.get("en", "continue")).performClick()
+        completeIntroduction("en")
+        repeat(2) { ui.onNodeWithText(Words.get("en", "continue")).performClick(); ui.waitForIdle() }
+        ui.onNodeWithText(Words.get("en", "finish")).performClick()
+        ui.onNodeWithText(Words.get("en", "rideTo")).assertExists()
+        assertEquals(listOf(home), LocalStore(context).places())
+    }
+
+    @Test
+    fun completedProfileWithMissingHomeReturnsToSetupAfterSaving() {
+        launch(completed = true, saved = emptyList())
+        ui.onNodeWithText(Words.get("en", "addHome")).performClick()
+        scenario!!.onActivity {
+            it.session.editor.onAction(PlaceEditorAction.SelectAddress(PlaceCandidate(home.address, home.latitude, home.longitude)))
+            it.session.editor.onAction(PlaceEditorAction.Save)
+        }
+        ui.onNodeWithText(Words.get("en", "onboardingHomeSaved")).assertExists()
+        ui.onNodeWithText(Words.get("en", "continue")).performClick()
+        ui.onNodeWithText(Words.get("en", "finish")).performClick()
+        // Existing profiles that never saw the ride tutorial still receive it.
+        ui.onNodeWithText(Words.get("en", "tutorialSpeakTitle")).assertExists()
     }
 
     @Test

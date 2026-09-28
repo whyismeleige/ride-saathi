@@ -1,6 +1,7 @@
 package com.ridesaathi.app.core.ui.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -12,14 +13,24 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
+import com.ridesaathi.app.R
 
-/** Decorative line icons; the adjacent text supplies the accessible label. */
+/** Decorative icons; the adjacent text supplies the accessible label. */
 @Composable
 fun RideIcon(
     kind: String,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primary
 ) {
+    if (kind == "uber") {
+        Image(
+            painter = painterResource(R.drawable.ic_uber),
+            contentDescription = null,
+            modifier = modifier.size(28.dp)
+        )
+        return
+    }
     Canvas(modifier.size(28.dp)) {
         val s = size.width / 24f
         val stroke = Stroke(width = 1.8f * s, cap = StrokeCap.Round)
@@ -32,6 +43,17 @@ fun RideIcon(
                 cap = StrokeCap.Round
             )
         when (kind) {
+            "person" -> {
+                drawCircle(color, 4 * s, Offset(12 * s, 7 * s), style = stroke)
+                drawArc(color, 180f, 180f, false, Offset(4 * s, 14 * s), Size(16 * s, 14 * s), style = stroke)
+            }
+
+            "language" -> {
+                drawCircle(color, 9 * s, Offset(12 * s, 12 * s), style = stroke)
+                drawOval(color, Offset(8 * s, 3 * s), Size(8 * s, 18 * s), style = stroke)
+                line(3f, 12f, 21f, 12f)
+            }
+
             "mic" -> {
                 drawRoundRect(
                     color,

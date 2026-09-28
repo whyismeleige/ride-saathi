@@ -1,6 +1,17 @@
 package com.ridesaathi.app.localization
 
 internal val te = mapOf(
+    "onboardingStep" to "దశ {current} / {total}",
+    "onboardingLanguageHint" to "మీకు సౌకర్యంగా ఉన్న భాషను ఎంచుకోండి.",
+    "onboardingNameTitle" to "మిమ్మల్ని ఏమని పిలవాలి?",
+    "onboardingNameHint" to "Ride Saathi మిమ్మల్ని పలకరించడానికి మీ పేరు చెప్పండి.",
+    "onboardingHomeTitle" to "మీ ఇంటితో మొదలుపెడదాం",
+    "onboardingHomeHint" to "మీ ఇంటి చిరునామాను ఒకసారి సేవ్ చేస్తే, తిరిగి వెళ్లడానికి సులభంగా ఎంచుకోవచ్చు.",
+    "onboardingHomeSearch" to "మీ ఇంటి చిరునామాను వెతికి, సేవ్ చేసే ముందు మ్యాప్‌లో పిన్‌ను సరిచూసుకోండి.",
+    "onboardingHomeSaved" to "ఇల్లు సేవ్ అయింది. మార్చడానికి కింద నొక్కండి.",
+    "onboardingPlacesTitle" to "మీరు తరచూ వెళ్లే ప్రదేశాలు",
+    "onboardingPlacesHint" to "డాక్టర్, కుటుంబం లేదా ఇష్టమైన ప్రదేశాన్ని జోడించండి. ఇది ఐచ్ఛికం — తర్వాత సెట్టింగ్స్‌లో కూడా జోడించవచ్చు.",
+
     "searchDestinations" to "మీ గమ్యస్థానాన్ని ఎంచుకోండి",
     "searchQuery" to "స్థలం పేరు మరియు ప్రాంతం",
     "searchingDestination" to "స్థలాలను వెతుకుతున్నాం…",
@@ -111,6 +122,8 @@ internal val te = mapOf(
     "watchTutorial" to "ట్యుటోరియల్ చూడండి",
     "introTitle" to "సెటప్‌కు ముందు",
     "tutorialTitle" to "రైడ్ ఎలా అడగాలి",
+    "introAboutTitle" to "Ride Saathi పరిచయం",
+    "introAboutBody" to "Ride Saathi రైడ్ బుక్ చేసుకోవడాన్ని సులభం చేస్తుంది. మీరు వెళ్లే ప్రదేశం పేరు చెప్పండి లేదా సేవ్ చేసిన ప్రదేశాన్ని నొక్కండి. తర్వాత Uberలో మీ బుకింగ్ పూర్తి చేయండి.",
     "introFamilyTitle" to "కుటుంబం ఒకసారి సెటప్ చేస్తుంది",
     "introFamilyBody" to "కుటుంబ సభ్యులు మీ ఇల్లు మరియు మీరు తరచుగా వెళ్లే స్థలాలను జోడించవచ్చు.",
     "introPlacesTitle" to "తర్వాత రైడ్‌లు సులభం",

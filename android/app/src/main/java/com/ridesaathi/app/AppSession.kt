@@ -16,7 +16,6 @@ import com.ridesaathi.app.feature.places.PlaceEditorController
 import com.ridesaathi.app.feature.ride.RideController
 import com.ridesaathi.app.feature.sharedlocation.SharedLocationController
 import com.ridesaathi.app.feature.tutorial.TutorialController
-import com.ridesaathi.app.feature.tutorial.TutorialMode
 import com.ridesaathi.app.localization.Words
 import com.ridesaathi.app.localization.languageLocale
 import com.ridesaathi.app.navigation.AppScreen
@@ -110,6 +109,7 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
     fun navigateBack() {
         shared.cancelSharedLocation()
         when (screen) {
+            AppScreen.Onboarding -> onboarding.back()
             AppScreen.RideConfirmation -> destination.returnToChoices()
             AppScreen.Clarification, AppScreen.SharedChoices, AppScreen.DestinationSearch -> ride.cancelRide()
             AppScreen.Tutorial -> tutorial.finishTutorial()
@@ -119,7 +119,7 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
                     editor.state.pickingAddress = false
                     editor.state.searchQuery = editor.state.draftAddress
                     editor.state.searchResults = emptyList()
-                } else screen = if (profile.completed) AppScreen.Settings else AppScreen.Onboarding
+                } else screen = editor.returnScreen
             }
 
             AppScreen.Settings -> screen = AppScreen.Home
@@ -129,11 +129,9 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
     }
 
     fun selectLanguage(code: String) {
-        val shouldShowIntro = !profile.completed && !profile.introSeen && profile.language != code
         profile = profile.copy(language = code)
         store.saveProfile(profile)
         speechOutput.updateLanguage()
         message = ""
-        if (shouldShowIntro) tutorial.openTutorial(TutorialMode.Intro, AppScreen.Onboarding)
     }
 }

@@ -51,7 +51,7 @@ internal fun TutorialScreen(
         SectionCard {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-                    Box(Modifier.padding(28.dp)) { RideIcon(slide.icon, Modifier.size(56.dp)) }
+                    Box(Modifier.padding(28.dp)) { RideIcon(slide.icon, Modifier.size(if (slide.icon == "uber") 72.dp else 56.dp)) }
                 }
             }
             Text(

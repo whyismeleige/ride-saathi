@@ -12,6 +12,8 @@ import com.ridesaathi.app.navigation.AppScreen
 
 internal class PlaceEditorController(private val app: AppSession) {
     val state = PlaceEditorUiState()
+    var returnScreen = AppScreen.Settings
+        private set
 
     private var searchGeneration = 0
     private val searchHandler = Handler(Looper.getMainLooper())
@@ -57,6 +59,7 @@ internal class PlaceEditorController(private val app: AppSession) {
     }
 
     fun openEditor(place: SavedPlace?, home: Boolean): Unit = with(app) {
+        returnScreen = if (screen == AppScreen.Onboarding) AppScreen.Onboarding else AppScreen.Settings
         voice.stopListening()
         state.showDeleteConfirmation = false
         state.pendingHome = home
@@ -145,7 +148,7 @@ internal class PlaceEditorController(private val app: AppSession) {
         places = places.filterNot { it.id == state.editingId } + saved
         store.savePlaces(places)
         message = ""
-        screen = if (profile.completed) AppScreen.Settings else AppScreen.Onboarding
+        screen = returnScreen
     }
 
     fun deletePlace(): Unit = with(app) {
@@ -156,6 +159,6 @@ internal class PlaceEditorController(private val app: AppSession) {
         places = places.filterNot { it.id == state.editingId }
         store.savePlaces(places)
         message = ""
-        screen = if (profile.completed) AppScreen.Settings else AppScreen.Onboarding
+        screen = returnScreen
     }
 }

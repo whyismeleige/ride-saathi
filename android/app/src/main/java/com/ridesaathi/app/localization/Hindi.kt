@@ -1,6 +1,17 @@
 package com.ridesaathi.app.localization
 
 internal val hi = mapOf(
+    "onboardingStep" to "चरण {current} / {total}",
+    "onboardingLanguageHint" to "जिस भाषा में आप सहज हैं, उसे चुनें।",
+    "onboardingNameTitle" to "हम आपको किस नाम से बुलाएँ?",
+    "onboardingNameHint" to "अपना नाम डालें, ताकि Ride Saathi आपका स्वागत कर सके।",
+    "onboardingHomeTitle" to "शुरुआत अपने घर से करें",
+    "onboardingHomeHint" to "घर का पता एक बार सेव करें, ताकि वापस जाने के लिए उसे आसानी से चुन सकें।",
+    "onboardingHomeSearch" to "अपने घर का पता खोजें और सेव करने से पहले नक्शे पर पिन जाँचें।",
+    "onboardingHomeSaved" to "घर सेव हो गया है। बदलाव करने के लिए नीचे टैप करें।",
+    "onboardingPlacesTitle" to "आपकी रोज़मर्रा की जगहें",
+    "onboardingPlacesHint" to "डॉक्टर, परिवार या कोई पसंदीदा जगह जोड़ें। यह ज़रूरी नहीं है — आप बाद में सेटिंग्स से भी जोड़ सकते हैं।",
+
     "searchDestinations" to "अपनी मंज़िल चुनें",
     "searchQuery" to "जगह का नाम और इलाका",
     "searchingDestination" to "जगह खोज रहे हैं…",
@@ -111,6 +122,8 @@ internal val hi = mapOf(
     "watchTutorial" to "ट्यूटोरियल देखें",
     "introTitle" to "सेटअप से पहले",
     "tutorialTitle" to "राइड कैसे माँगें",
+    "introAboutTitle" to "Ride Saathi से मिलिए",
+    "introAboutBody" to "Ride Saathi राइड बुक करना आसान बनाता है। जहाँ जाना है उसका नाम बोलें या सेव की हुई जगह पर टैप करें। फिर Uber में अपनी बुकिंग पूरी करें।",
     "introFamilyTitle" to "परिवार एक बार सेटअप करता है",
     "introFamilyBody" to "परिवार का कोई सदस्य आपका घर और रोज़ जाने वाली जगहें जोड़ सकता है।",
     "introPlacesTitle" to "फिर राइड आसान हो जाती है",

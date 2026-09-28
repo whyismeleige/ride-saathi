@@ -49,7 +49,9 @@ to those screens. Address editing and destination search use explicit actions.
 
 This is deliberately an **Activity-lifetime session, not a retained ViewModel**.
 The existing rotation contract abandons unfinished rides and reloads persisted
-setup/home data. Retaining a pending confirmation or handoff would change that
+setup/home data. Onboarding alone restores its current stage and tutorial page
+through the Activity saved-state registry; name, language and places still use
+LocalStore. Retaining a pending confirmation or handoff would change that
 behavior. A `DefaultLifecycleObserver` stops recognition/TTS on pause, cancels
 work on stop, and releases resources on destroy. Permission dialogs retain the
 existing exceptions for search work. New features needing retention can add a
@@ -58,7 +60,9 @@ ViewModel without retaining this Activity or its platform controllers.
 Navigation remains the existing animated single-screen flow. Back returns from
 searched-destination confirmation to the same result page; other confirmations
 return home. Editor Back first dismisses address replacement when a prior address
-exists. Tutorial Back records completion and returns to its typed return screen.
+exists, then returns to the screen that opened it. Onboarding has five stages:
+language, the existing intro and ride tutorial, name, Home, and optional places.
+Its Back action moves through stages and tutorial pages without completing setup. Tutorial Back records completion and returns to its typed return screen.
 
 ## Data flow and compatibility
 
@@ -74,7 +78,7 @@ exists. Tutorial Back records completion and returns to its typed return screen.
 - Profile/place mutations go through `LocalStore`. Preference file `ride_saathi`,
   keys `profile`, `places`, `map_endpoint`, JSON fields, aliases, IDs, language and
   tutorial defaults are unchanged. No existing data migration is needed.
-- All 125 keys in each language are retained. Runtime language selection and
+- All existing localization keys are retained, with setup copy added in each language. Runtime language selection and
   English/unknown-key fallback are unchanged.
 
 Keep the distinct timing/quality contracts: address debounce 500 ms; recognition

@@ -9,6 +9,7 @@ internal class TutorialController(private val app: AppSession) {
     data class TutorialSlide(val icon: String, val titleKey: String, val bodyKey: String)
 
     fun introSlides(): List<TutorialSlide> = listOf(
+        TutorialSlide("pin", "introAboutTitle", "introAboutBody"),
         TutorialSlide("home", "introFamilyTitle", "introFamilyBody"),
         TutorialSlide("pin", "introPlacesTitle", "introPlacesBody")
     )
@@ -17,7 +18,7 @@ internal class TutorialController(private val app: AppSession) {
         TutorialSlide("mic", "tutorialSpeakTitle", "tutorialSpeakBody"),
         TutorialSlide("check", "tutorialConfirmTitle", "tutorialConfirmBody"),
         TutorialSlide("pin", "tutorialPickupTitle", "tutorialPickupBody"),
-        TutorialSlide("arrow", "tutorialUberTitle", "tutorialUberBody")
+        TutorialSlide("uber", "tutorialUberTitle", "tutorialUberBody")
     )
 
     fun tutorialSlides(): List<TutorialSlide> =
