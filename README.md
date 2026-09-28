@@ -199,6 +199,12 @@ Connected tests and live checks still matter because speech recognition, TTS tim
 
 Before a real pilot, follow `docs/PILOT_TESTING.md`. The latest known validation status and remaining gaps are in `docs/VALIDATION.md`.
 
+## License
+
+Ride Saathi source code is available under the MIT License. See `LICENSE` for
+the project license and `THIRD_PARTY_NOTICES.md` for bundled asset and
+dependency notices.
+
 ## Product Scope
 
 V0 is aimed at a supervised family pilot: configure Home and trusted destinations with a family member, let the rider choose by touch or voice, confirm clearly, and hand the trip to Uber. Success means a small group of older users can repeat the flow comfortably without needing someone else to start every ride for them.
