@@ -133,20 +133,18 @@ The `qa` build type uses the separate package `com.ridesaathi.app.qa`, so device
 
 The backend is required for live place autocomplete. See `backend/README.md` for the full API contract and deployment notes.
 
-Local development:
+Local development (install [uv](https://docs.astral.sh/uv/getting-started/installation/) first):
 
 ```sh
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
+uv sync --locked
 cp .env.example .env
 ```
 
 Set `OLA_MAPS_API_KEY` in `backend/.env`, then run:
 
 ```sh
-uvicorn app.main:app --reload --env-file .env
+uv run --locked uvicorn app.main:app --reload --env-file .env
 ```
 
 The default local API URL is `http://localhost:8000`. Android emulators reach the host machine at `http://10.0.2.2:8000`, which is the debug/QA fallback in `android/app/build.gradle.kts`.
@@ -155,8 +153,7 @@ Run backend tests:
 
 ```sh
 cd backend
-source .venv/bin/activate
-pytest -q
+uv run --locked pytest -q
 ```
 
 ## API Base URL Configuration
@@ -192,7 +189,7 @@ Useful full-check command set:
 ```sh
 ./android/gradlew -p android :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug
 node --test android/app/src/test/js/map-preview.test.cjs
-cd backend && source .venv/bin/activate && pytest -q
+cd backend && uv run --locked pytest -q
 ```
 
 Connected tests and live checks still matter because speech recognition, TTS timing, device permissions, GPS behavior, map tile loading, and the final Uber screen depend on the phone and environment.

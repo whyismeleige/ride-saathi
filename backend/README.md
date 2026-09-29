@@ -60,11 +60,12 @@ upstream internals:
 
 ## Local development
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) first.
+uv manages Python 3.12 and the local `.venv` automatically.
+
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
+uv sync --locked
 cp .env.example .env
 ```
 
@@ -72,10 +73,10 @@ Run it:
 
 ```bash
 # Loads values from .env (uvicorn's built-in --env-file):
-uvicorn app.main:app --reload --env-file .env
+uv run --locked uvicorn app.main:app --reload --env-file .env
 # or export the variables yourself:
 export OLA_MAPS_API_KEY=your_key
-uvicorn app.main:app --reload --port 8000
+uv run --locked uvicorn app.main:app --reload --port 8000
 ```
 
 The API listens on `http://localhost:8000` (see `.env` / your shell). The
@@ -86,12 +87,16 @@ request returns `NOT_CONFIGURED`.
 
 ```bash
 cd backend
-source .venv/bin/activate
-pytest -q
+uv run --locked pytest -q
 ```
 
 All upstream Ola calls are mocked with `httpx.MockTransport`; no real Ola
 quota is ever consumed by the test suite.
+
+Dependencies live in `pyproject.toml`; commit `uv.lock` alongside dependency
+changes. Use `uv add <package>` for runtime dependencies and
+`uv add --dev <package>` for development tools. Run `uv lock --upgrade` to
+intentionally refresh all locked versions, then run the tests.
 
 ## Configuration
 
@@ -108,7 +113,8 @@ quota is ever consumed by the test suite.
 ## Deployment
 
 The app is provider-agnostic (works on Railway, Render, Cloud Run, Fly.io,
-Koyeb, or a VPS). Just run `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+Koyeb, or a VPS). From `backend`, install with `uv sync --locked --no-dev`,
+then run `uv run --locked --no-dev uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
 (or use the included `Dockerfile`, which already respects `$PORT`) and set
 `OLA_MAPS_API_KEY` as a platform secret/environment variable.
 
