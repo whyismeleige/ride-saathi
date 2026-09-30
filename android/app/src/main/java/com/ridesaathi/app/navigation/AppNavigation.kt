@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.*
+import androidx.compose.ui.semantics.contentDescription
 import com.ridesaathi.app.core.ui.components.RideIcon
 import com.ridesaathi.app.core.ui.components.StickyMicrophone
 import com.ridesaathi.app.feature.destination.DestinationSearchScreen
@@ -54,38 +56,18 @@ internal fun AppSession.AppNavigation() {
         navigateBack()
     }
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (screen != AppScreen.PlaceEditor) Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(Modifier.padding(10.dp)) { RideIcon("pin") }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (screen != AppScreen.Home && (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language)) {
+                CircularBackButton(word("back")) { navigateBack() }
             }
-            val title = if (screen != AppScreen.PlaceEditor) "Ride Saathi" else word(
-                when {
-                    editor.state.pickingAddress -> "search"
-                    editor.state.editingId != null -> "editPlace"
-                    editor.state.pendingHome -> "addHome"
-                    else -> "addPlace"
+            RideSaathiLogo(Modifier.weight(1f))
+            if (screen == AppScreen.Home) {
+                FilledTonalIconButton(onClick = {
+                    shared.cancelSharedLocation(); voice.stopListening(); stopPrompt(); message = ""; screen = AppScreen.Settings
+                }, modifier = Modifier.size(48.dp).semantics { contentDescription = word("settings") }) {
+                    RideIcon("person")
                 }
-            )
-            Text(
-                title,
-                modifier = Modifier.weight(1f)
-                    .padding(start = if (screen == AppScreen.PlaceEditor) 0.dp else 12.dp),
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (screen == AppScreen.Home) TextButton(onClick = {
-                shared.cancelSharedLocation(); voice.stopListening(); message = ""; screen =
-                AppScreen.Settings
-            }) {
-                Text(word("settings"))
-            }
-            else if (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language) TextButton(onClick = { navigateBack() }) {
-                RideIcon("back", Modifier.size(18.dp)); Text(word("back"))
             }
         }
         AnimatedContent(

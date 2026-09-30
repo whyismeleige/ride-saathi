@@ -49,16 +49,11 @@ internal fun PlaceRow(
             Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(Modifier.padding(12.dp)) { RideIcon(if (place.isHome) "home" else "pin") }
-            }
+            RideIconBadge(if (place.isHome) "home" else "pin", place.isHome)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     if (place.isHome) word("home") else place.name,
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleMedium
                 )
                 ExpandableAddress(place, word)
             }

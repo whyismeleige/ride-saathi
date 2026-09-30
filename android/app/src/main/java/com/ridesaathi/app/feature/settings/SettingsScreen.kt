@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.core.ui.components.LargeButton
 import com.ridesaathi.app.core.ui.components.PlaceRow
 import com.ridesaathi.app.core.ui.components.RideIcon
@@ -29,35 +30,20 @@ internal fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     Column(modifier.fillMaxWidth()) {
-        Column(
-            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            Text(word("settings"), style = MaterialTheme.typography.headlineMedium)
-            SectionCard { LanguagePicker(language, word, onLanguageChange, dropdown = true) }
-            Text(word("manage"), style = MaterialTheme.typography.titleLarge)
-            places.forEach { PlaceRow(it, word) { onEdit(it) } }
-        }
-        Surface(shadowElevation = 4.dp) {
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onTutorial,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                ) {
-                    RideIcon("arrow", Modifier.size(18.dp))
-                    Text(word("watchTutorial"))
-                }
-                LargeButton(word("addPlace"), onClick = onAdd)
-                OutlinedButton(
-                    onClick = onDone,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                ) {
-                    Text(word("done"))
-                }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            RideScenicHeader(home = true)
+            RideSectionTitle(word("places"))
+            Text(word("savedPlacesHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            places.sortedByDescending { it.isHome }.forEach { PlaceRow(it, word) { onEdit(it) } }
+            LargeButton(word("addPlace"), onClick = onAdd)
+            SectionCard { LanguagePicker(language, word, onLanguageChange) }
+            OutlinedButton(onClick = onTutorial, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                Text(word("watchTutorial"))
             }
+        }
+        Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
+            LargeButton(word("done"), onClick = onDone)
         }
     }
 }
