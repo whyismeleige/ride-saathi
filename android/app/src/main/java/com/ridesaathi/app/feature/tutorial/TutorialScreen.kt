@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.RideScenicHeader
 import com.ridesaathi.app.core.ui.components.LargeButton
 import com.ridesaathi.app.core.ui.components.RideIcon
 import com.ridesaathi.app.core.ui.components.SectionCard
@@ -49,11 +50,7 @@ internal fun TutorialScreen(
             style = MaterialTheme.typography.headlineMedium
         )
         SectionCard {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-                    Box(Modifier.padding(28.dp)) { RideIcon(slide.icon, Modifier.size(if (slide.icon == "uber") 72.dp else 56.dp)) }
-                }
-            }
+            RideScenicHeader()
             Text(
                 word(slide.titleKey),
                 style = MaterialTheme.typography.headlineMedium,

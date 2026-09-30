@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +36,10 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.*
+import com.ridesaathi.app.feature.settings.LanguageChoices
+import com.ridesaathi.app.core.ui.theme.RideShapes
+import com.ridesaathi.app.core.ui.theme.RideColors
 import com.ridesaathi.app.core.ui.components.LargeButton
 import com.ridesaathi.app.core.ui.components.PlaceRow
 import com.ridesaathi.app.core.ui.components.RideIcon
@@ -115,17 +120,19 @@ internal fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 val slide = if (activeStep == OnboardingStep.Introduction) slides[page] else null
-                OnboardingEmblem(slide?.icon ?: activeStep.icon, compact = activeStep == OnboardingStep.Language)
+                RideScenicHeader(home = activeStep == OnboardingStep.Home || activeStep == OnboardingStep.Places)
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         word(slide?.titleKey ?: activeStep.titleKey),
                         style = if (activeStep == OnboardingStep.Language) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.semantics { heading() }
+                        modifier = Modifier.fillMaxWidth().semantics { heading() },
+                        textAlign = TextAlign.Center
                     )
                     Text(
                         word(slide?.bodyKey ?: activeStep.hintKey),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()
                     )
                 }
                 when (activeStep) {
@@ -151,7 +158,9 @@ internal fun OnboardingScreen(
                         onValueChange = onNameChange,
                         label = { Text(word("name")) },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RideShapes.medium,
+                        leadingIcon = { RideIcon("person") },
+                        trailingIcon = { if (profile.name.isNotEmpty()) IconButton(onClick = { onNameChange("") }, modifier = Modifier.semantics { contentDescription = word("clear") }) { RideIcon("close") } },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
                         keyboardActions = KeyboardActions(onNext = { if (profile.name.isNotBlank()) next() })
@@ -160,7 +169,10 @@ internal fun OnboardingScreen(
                         if (home != null) {
                             SetupNote("check", word("onboardingHomeSaved"))
                             PlaceRow(home, word) { onEdit(home) }
-                        } else SetupNote("search", word("onboardingHomeSearch"))
+                        } else {
+                            Text(word("homeRequired"), color = RideColors.Emerald)
+                            RideCandidateCard(word("search"), word("onboardingHomeSearch"), onClick = next)
+                        }
                     }
                     OnboardingStep.Places -> {
                         val additional = places.filterNot { it.isHome }
@@ -192,6 +204,7 @@ internal fun OnboardingScreen(
             Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
                 LargeButton(
                     label = word(when {
+                        step == OnboardingStep.Introduction && introPage == 0 -> "getStarted"
                         step == OnboardingStep.Places -> "finish"
                         step == OnboardingStep.Home && home == null -> "addHome"
                         else -> "continue"
@@ -201,52 +214,6 @@ internal fun OnboardingScreen(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun LanguageChoices(language: String, onSelect: (String) -> Unit) {
-    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        listOf(Triple("en", "English", "A"), Triple("hi", "हिन्दी", "अ"), Triple("te", "తెలుగు", "అ")).forEach { (code, label, glyph) ->
-            val selected = language == code
-            val background by animateColorAsState(
-                if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                label = "languageSelection"
-            )
-            Surface(
-                shape = RoundedCornerShape(20.dp), color = background,
-                border = BorderStroke(if (selected) 2.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
-                    .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(code) })
-            ) {
-                Row(Modifier.heightIn(min = 72.dp).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
-                        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                            Text(glyph, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                    Text(label, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    RadioButton(selected = selected, onClick = null)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OnboardingEmblem(icon: String, compact: Boolean = false) {
-    val outerSize = if (compact) 80.dp else 132.dp
-    val innerSize = if (compact) 64.dp else 104.dp
-    Box(Modifier.fillMaxWidth().height(outerSize), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(outerSize).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)))
-        Box(Modifier.size(innerSize).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-            RideIcon(icon, Modifier.size(if (icon == "uber") 72.dp else if (compact) 32.dp else 48.dp))
-        }
-        Surface(
-            modifier = Modifier.align(Alignment.Center).offset(x = if (compact) 30.dp else 48.dp, y = if (compact) 24.dp else 38.dp),
-            shape = CircleShape, color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) { Box(Modifier.padding(if (compact) 6.dp else 10.dp)) { RideIcon("check", Modifier.size(if (compact) 14.dp else 18.dp)) } }
     }
 }
 

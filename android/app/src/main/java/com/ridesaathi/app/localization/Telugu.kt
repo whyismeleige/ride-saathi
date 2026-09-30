@@ -1,11 +1,20 @@
 package com.ridesaathi.app.localization
 
 internal val te = mapOf(
+    "clear" to "వచనాన్ని తొలగించండి",
+    "manualDestination" to "వేరే గమ్యస్థానాన్ని నమోదు చేయండి",
+    "quickPlaces" to "మీ ప్రదేశాలు",
+    "seeAll" to "అన్నీ చూడండి",
+    "bookRide" to "రైడ్ బుక్ చేయండి",
+    "tapSpeak" to "నొక్కి మాట్లాడండి",
+    "getStarted" to "ప్రారంభించండి",
+    "savedPlacesHint" to "సులభమైన ప్రయాణాల కోసం మీ ప్రదేశాలను సేవ్ చేయండి।",
+
     "onboardingStep" to "దశ {current} / {total}",
     "onboardingLanguageHint" to "మీకు సౌకర్యంగా ఉన్న భాషను ఎంచుకోండి.",
     "onboardingNameTitle" to "మిమ్మల్ని ఏమని పిలవాలి?",
-    "onboardingNameHint" to "Ride Saathi మిమ్మల్ని పలకరించడానికి మీ పేరు చెప్పండి.",
-    "onboardingHomeTitle" to "మీ ఇంటితో మొదలుపెడదాం",
+    "onboardingNameHint" to "దయచేసి మీ పేరు నమోదు చేయండి. మీకు అనుగుణమైన అనుభవం కోసం, కొనసాగడానికి ఇది అవసరం.",
+    "onboardingHomeTitle" to "మీ ఇంటిని సేవ్ చేయండి",
     "onboardingHomeHint" to "మీ ఇంటి చిరునామాను ఒకసారి సేవ్ చేస్తే, తిరిగి వెళ్లడానికి సులభంగా ఎంచుకోవచ్చు.",
     "onboardingHomeSearch" to "మీ ఇంటి చిరునామాను వెతికి, సేవ్ చేసే ముందు మ్యాప్‌లో పిన్‌ను సరిచూసుకోండి.",
     "onboardingHomeSaved" to "ఇల్లు సేవ్ అయింది. మార్చడానికి కింద నొక్కండి.",
@@ -122,8 +131,8 @@ internal val te = mapOf(
     "watchTutorial" to "ట్యుటోరియల్ చూడండి",
     "introTitle" to "సెటప్‌కు ముందు",
     "tutorialTitle" to "రైడ్ ఎలా అడగాలి",
-    "introAboutTitle" to "Ride Saathi పరిచయం",
-    "introAboutBody" to "Ride Saathi రైడ్ బుక్ చేసుకోవడాన్ని సులభం చేస్తుంది. మీరు వెళ్లే ప్రదేశం పేరు చెప్పండి లేదా సేవ్ చేసిన ప్రదేశాన్ని నొక్కండి. తర్వాత Uberలో మీ బుకింగ్ పూర్తి చేయండి.",
+    "introAboutTitle" to "మీ మాటతోనే గమ్యానికి చేరుకోండి",
+    "introAboutBody" to "మీ భాషలో సులభంగా Uber బుక్ చేయండి.",
     "introFamilyTitle" to "కుటుంబం ఒకసారి సెటప్ చేస్తుంది",
     "introFamilyBody" to "కుటుంబ సభ్యులు మీ ఇల్లు మరియు మీరు తరచుగా వెళ్లే స్థలాలను జోడించవచ్చు.",
     "introPlacesTitle" to "తర్వాత రైడ్‌లు సులభం",

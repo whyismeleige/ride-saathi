@@ -1,11 +1,20 @@
 package com.ridesaathi.app.localization
 
 internal val en = mapOf(
+    "clear" to "Clear text",
+    "manualDestination" to "Enter a different destination",
+    "quickPlaces" to "Quick places",
+    "seeAll" to "See all",
+    "bookRide" to "Book ride",
+    "tapSpeak" to "Tap and speak",
+    "getStarted" to "Get started",
+    "savedPlacesHint" to "Save familiar places for easier journeys.",
+
     "onboardingStep" to "Step {current} of {total}",
     "onboardingLanguageHint" to "Feel at home. Choose the language you’re most comfortable with.",
     "onboardingNameTitle" to "What should we call you?",
-    "onboardingNameHint" to "Let’s make Ride Saathi feel a little more like you.",
-    "onboardingHomeTitle" to "A familiar place to start",
+    "onboardingNameHint" to "Please enter your name. It helps us personalise your experience and is required to continue.",
+    "onboardingHomeTitle" to "Save your home",
     "onboardingHomeHint" to "Save your home once, so it’s easy to choose whenever you need a ride back.",
     "onboardingHomeSearch" to "Search for your home address and check the pin before saving.",
     "onboardingHomeSaved" to "Home is saved. You can tap it below to make changes.",
@@ -122,8 +131,8 @@ internal val en = mapOf(
     "watchTutorial" to "Watch tutorial",
     "introTitle" to "Before we set up",
     "tutorialTitle" to "How to request a ride",
-    "introAboutTitle" to "Meet Ride Saathi",
-    "introAboutBody" to "Ride Saathi helps you book rides more easily. Say your destination or tap a saved place. Then finish your booking in Uber.",
+    "introAboutTitle" to "Get there with just your voice",
+    "introAboutBody" to "Book an Uber easily, in your language.",
     "introFamilyTitle" to "Family sets it up once",
     "introFamilyBody" to "A family member can add your Home and your regular places.",
     "introPlacesTitle" to "Then rides are simpler",
