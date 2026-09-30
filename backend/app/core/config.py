@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -49,6 +49,18 @@ class Settings(BaseSettings):
 
     # Persistence is optional for startup and place search.
     database_url: str = Field(default="", repr=False)
+
+    # No fallback signing/encryption keys: auth fails closed until configured.
+    app_jwt_secret: SecretStr = Field(default=SecretStr(""), repr=False)
+    app_jwt_algorithm: Literal["HS256"] = "HS256"
+    app_access_token_ttl_seconds: int = Field(default=3600, ge=60, le=2592000)
+    app_callback_uri: str = ""
+    uber_client_id: str = ""
+    uber_client_secret: SecretStr = Field(default=SecretStr(""), repr=False)
+    uber_redirect_uri: str = ""
+    uber_scopes: str = "profile offline_access"
+    uber_timeout_seconds: float = Field(default=8, gt=0, le=60)
+    uber_credential_encryption_key: SecretStr = Field(default=SecretStr(""), repr=False)
 
     db_echo: bool = False
     db_pool_size: int = Field(default=5, ge=1)

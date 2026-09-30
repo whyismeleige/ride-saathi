@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Text, text
+from sqlalchemy import CheckConstraint, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, Timestamps, UUIDPrimaryKey
@@ -17,7 +17,14 @@ if TYPE_CHECKING:
 class User(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "users"
 
-    name: Mapped[str] = mapped_column(Text)
+    __table_args__ = (
+        CheckConstraint(
+            "NOT onboarding_completed OR (name IS NOT NULL AND name ~ '[^[:space:]]')",
+            name="completed_name_present",
+        ),
+    )
+
+    name: Mapped[str | None] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(Text, unique=True)
     email: Mapped[str | None] = mapped_column(Text, unique=True)
     preferred_language: Mapped[LanguageCode] = mapped_column(

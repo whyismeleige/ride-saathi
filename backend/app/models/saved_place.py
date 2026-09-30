@@ -8,6 +8,7 @@ from uuid import UUID
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
+    Index,
     Numeric,
     Text,
     UniqueConstraint,
@@ -26,6 +27,10 @@ if TYPE_CHECKING:
 class SavedPlace(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "saved_places"
     __table_args__ = (
+        Index(
+            "uq_saved_places_active_home", "user_id", unique=True,
+            postgresql_where=text("place_type = 'home' AND is_active"),
+        ),
         UniqueConstraint("user_id", "label", name="uq_saved_places_user_id_label"),
         CheckConstraint("visit_count >= 0", name="visit_count_nonnegative"),
         CheckConstraint("latitude BETWEEN -90 AND 90", name="latitude_range"),
