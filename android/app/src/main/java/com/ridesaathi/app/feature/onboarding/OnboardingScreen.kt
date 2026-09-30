@@ -8,14 +8,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -37,7 +33,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
-import com.ridesaathi.app.feature.settings.LanguageChoices
 import com.ridesaathi.app.core.ui.theme.RideShapes
 import com.ridesaathi.app.core.ui.theme.RideColors
 import com.ridesaathi.app.domain.model.Profile
@@ -135,7 +130,7 @@ internal fun OnboardingScreen(
                     )
                 }
                 when (activeStep) {
-                    OnboardingStep.Language -> LanguageChoices(profile.language, onLanguageChange)
+                    OnboardingStep.Language -> RideLanguageChoices(profile.language, onLanguageChange)
                     OnboardingStep.Introduction -> {
                         RideScenicHeader(modifier = Modifier.height(220.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
@@ -144,14 +139,11 @@ internal fun OnboardingScreen(
                                     .clip(CircleShape).background(if (index == page) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant))
                             }
                         }
-                        OutlinedButton(
+                        RideSecondaryButton(
+                            label = word("replayAudio"),
                             onClick = { slide?.let { onSpeak("${word(it.titleKey)}. ${word(it.bodyKey)}") } },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                        ) {
-                            RideIcon("mic", Modifier.size(20.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text(word("replayAudio"))
-                        }
+                            icon = "mic"
+                        )
                     }
                     OnboardingStep.Name -> OutlinedTextField(
                         value = profile.name,
@@ -177,23 +169,10 @@ internal fun OnboardingScreen(
                     OnboardingStep.Places -> {
                         val additional = places.filterNot { it.isHome }
                         additional.forEach { place -> PlaceRow(place, word) { onEdit(place) } }
-                        OutlinedButton(
-                            onClick = onAddPlace,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-                            shape = RideShapes.medium,
-                            contentPadding = PaddingValues(16.dp)
-                        ) {
-                            RideIcon("pin", Modifier.size(22.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text(word("addPlace"), textAlign = TextAlign.Center)
-                        }
+                        RideSecondaryButton(word("addPlace"), onClick = onAddPlace, icon = "pin")
                         if (!uberInstalled) {
-                            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceVariant) {
-                                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(word("uberInstall"), style = MaterialTheme.typography.bodyLarge)
-                                    TextButton(onClick = onInstall) { Text(word("install")) }
-                                }
-                            }
+                            RideEmptyState(word("uberInstall"))
+                            RideSecondaryButton(word("install"), onClick = onInstall, icon = "uber")
                         }
                     }
                 }

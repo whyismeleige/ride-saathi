@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.data.places.OpenStreetMapPreviewProvider
@@ -33,18 +32,22 @@ internal fun RideConfirmationScreen(
         )
         ExpandableAddress(place, word, style = MaterialTheme.typography.bodyLarge)
     }
-    if (working) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-    if (!uberInstalled) LargeButton(word("install"), onClick = onInstall)
+    if (working) RideLoadingState(word("working"))
+    if (!uberInstalled) {
+        RideEmptyState(word("uberInstall"))
+        LargeButton(word("install"), onClick = onInstall)
+    }
     if (locationUnavailable) {
-        OutlinedButton(
+        RideSecondaryButton(
+            label = word("openLocation"),
             onClick = onLocationSettings,
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(word("openLocation")) }
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        )
     }
     MapPreview(mapUrl, language)
     Text(word("handoffHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    LargeButton(word(if (working) "working" else "yes"), enabled = !working && uberInstalled, onClick = onConfirm)
-    OutlinedButton(onClick = onChooseAgain, enabled = !working, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("no")) }
+    LargeButton(word("yes"), enabled = !working && uberInstalled, onClick = onConfirm)
+    RideSecondaryButton(word("no"), onClick = onChooseAgain, enabled = !working)
 }
 
 @Composable

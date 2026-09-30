@@ -34,9 +34,7 @@ internal fun SettingsScreen(
             places.sortedByDescending { it.isHome }.forEach { PlaceRow(it, word) { onEdit(it) } }
             LargeButton(word("addPlace"), onClick = onAdd)
             SectionCard { LanguagePicker(language, word, onLanguageChange) }
-            OutlinedButton(onClick = onTutorial, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-                Text(word("watchTutorial"))
-            }
+            RideSecondaryButton(word("watchTutorial"), onClick = onTutorial, icon = "mic")
         }
         Box(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
             LargeButton(word("done"), onClick = onDone)

@@ -55,7 +55,7 @@ internal val en = mapOf(
     "install" to "Open Play Store",
     "places" to "Saved places",
     "settings" to "Settings",
-    "rideTo" to "Where do you want to go?",
+    "rideTo" to "Where would you like to go today?",
     "speak" to "Speak",
     "listening" to "Listening…",
     "recognizedSpeech" to "Recognized speech",

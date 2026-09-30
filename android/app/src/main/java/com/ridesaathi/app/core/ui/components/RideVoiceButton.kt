@@ -2,7 +2,8 @@ package com.ridesaathi.app.core.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
@@ -14,26 +15,72 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.core.ui.theme.RideColors
 
+/**
+ * The concentric mint rings behind the microphone.
+ *
+ * Kept separate from [RideVoiceButton] so the same pulse can be reused by the sticky
+ * destination-screen microphone, and so the animation can be replaced wholesale later.
+ * Idle is slow and shallow; listening is faster and wider so the state is obvious at a glance.
+ */
+@Composable
+internal fun RideVoicePulse(listening: Boolean, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "voicePulse")
+    val pulse by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (listening) 1.16f else 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (listening) 850 else 1900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "voiceRing"
+    )
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Surface(
+            shape = CircleShape,
+            color = RideColors.Mint.copy(alpha = .45f),
+            modifier = Modifier.size(188.dp).scale(pulse)
+        ) {}
+        Surface(shape = CircleShape, color = RideColors.Mint, modifier = Modifier.size(160.dp)) {}
+    }
+}
+
+/**
+ * Dominant home-screen voice action: a large emerald microphone over pulsing mint rings.
+ *
+ * Exposes both an action label and a state description so TalkBack reports "Tap and speak"
+ * versus "Stop listening, Listening…" rather than an unlabelled circle.
+ */
 @Composable
 internal fun RideVoiceButton(listening: Boolean, word: (String) -> String, onToggle: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(if (pressed) .94f else 1f, tween(180), label = "micPress")
-    val transition = rememberInfiniteTransition(label = "voicePulse")
-    val pulse by transition.animateFloat(1f, if (listening) 1.16f else 1.04f,
-        infiniteRepeatable(tween(if (listening) 850 else 1900), RepeatMode.Reverse), label = "voiceRing")
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) .94f else 1f,
+        animationSpec = tween(180),
+        label = "micPress"
+    )
     Box(Modifier.size(216.dp), contentAlignment = Alignment.Center) {
-        Surface(shape = CircleShape, color = RideColors.Mint.copy(alpha = .45f), modifier = Modifier.size(188.dp).scale(pulse)) {}
-        Surface(shape = CircleShape, color = RideColors.Mint, modifier = Modifier.size(160.dp)) {}
-        Surface(onClick = onToggle, interactionSource = interaction, shape = CircleShape,
-            color = RideColors.Emerald, contentColor = MaterialTheme.colorScheme.onPrimary,
-            border = BorderStroke(3.dp, MaterialTheme.colorScheme.surface), shadowElevation = 6.dp,
-            modifier = Modifier.size(132.dp).scale(pressScale).semantics {
-                role = Role.Button
-                contentDescription = word(if (listening) "stop" else "tapSpeak")
-                stateDescription = word(if (listening) "listening" else "tapSpeak")
-            }) {
-            Box(contentAlignment = Alignment.Center) { RideIcon("mic", Modifier.size(52.dp), color = LocalContentColor.current) }
+        RideVoicePulse(listening)
+        Surface(
+            onClick = onToggle,
+            interactionSource = interaction,
+            shape = CircleShape,
+            color = RideColors.Emerald,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            border = BorderStroke(3.dp, MaterialTheme.colorScheme.surface),
+            shadowElevation = 6.dp,
+            modifier = Modifier
+                .size(132.dp)
+                .scale(pressScale)
+                .semantics {
+                    role = Role.Button
+                    contentDescription = word(if (listening) "stop" else "tapSpeak")
+                    stateDescription = word(if (listening) "listening" else "tapSpeak")
+                }
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                RideIcon("mic", Modifier.size(52.dp), color = LocalContentColor.current)
+            }
         }
     }
 }

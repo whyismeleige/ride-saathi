@@ -57,22 +57,18 @@ internal fun PlaceEditorScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(state.draftAddress, style = MaterialTheme.typography.bodyLarge)
-                    OutlinedButton(onClick = {
+                    RideSecondaryButton(word("changeAddress"), onClick = {
                         focusManager.clearFocus()
                         onAction(PlaceEditorAction.ChangeAddress)
-                    }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                        Text(word("changeAddress"))
-                    }
+                    }, icon = "search")
                 }
                 mapUrl?.let { MapPreview(it, language) }
                 if (state.editingId != null && !state.pendingHome) {
-                    TextButton(
+                    RideSecondaryButton(
+                        label = word("delete"),
                         onClick = { onAction(PlaceEditorAction.AskDelete) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text(word("delete"))
-                    }
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 }
             }
             Surface(shadowElevation = 4.dp) {

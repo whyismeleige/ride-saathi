@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -54,20 +53,17 @@ internal fun AppSession.AppNavigation() {
         navigateBack()
     }
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (screen != AppScreen.Home && (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language)) {
-                CircularBackButton(word("back")) { navigateBack() }
-            }
-            RideSaathiLogo(Modifier.weight(1f))
-            if (screen == AppScreen.Home) {
-                FilledTonalIconButton(onClick = {
-                    shared.cancelSharedLocation(); voice.stopListening(); stopPrompt(); message = ""; screen = AppScreen.Settings
-                }, modifier = Modifier.size(48.dp).semantics { contentDescription = word("settings") }) {
-                    RideIcon("person")
+        RideScreenHeader(
+            onBack = if (canNavigateBackFromHeader()) ::navigateBack else null,
+            backLabel = word("back"),
+            // Onboarding stages carry their own large headings, so the wordmark is dropped there.
+            showBrand = screen != AppScreen.Onboarding,
+            trailing = {
+                if (screen == AppScreen.Home) {
+                    RideHeaderAction(word("settings"), "person") { openSettings() }
                 }
             }
-        }
+        )
         AnimatedContent(
             targetState = screen,
             transitionSpec = {
@@ -184,4 +180,21 @@ internal fun AppSession.AppNavigation() {
             else -> Unit
         }
     }
+}
+
+/**
+ * The header mirrors the Android Back contract exactly: no control on Home, and none on the
+ * first onboarding stage, where Back must not unwind past the start of setup.
+ */
+private fun AppSession.canNavigateBackFromHeader(): Boolean =
+    screen != AppScreen.Home &&
+        (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language)
+
+/** Opens Settings, clearing any speech, prompt or shared-location work in progress. */
+internal fun AppSession.openSettings() {
+    shared.cancelSharedLocation()
+    voice.stopListening()
+    stopPrompt()
+    message = ""
+    screen = AppScreen.Settings
 }
