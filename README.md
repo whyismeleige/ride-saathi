@@ -133,6 +133,9 @@ The `qa` build type uses the separate package `com.ridesaathi.app.qa`, so device
 
 The backend is required for live place autocomplete. See `backend/README.md` for the full API contract and deployment notes.
 
+For Docker-based local development and production, see the
+[Docker Compose setup](backend/README.md#docker-compose).
+
 Local development (install [uv](https://docs.astral.sh/uv/getting-started/installation/) first):
 
 ```sh

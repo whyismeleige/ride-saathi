@@ -1,0 +1,35 @@
+name: ride-saathi-production
+
+services:
+  backend:
+    build: .
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ENVIRONMENT: production
+      PORT: "8000"
+      OLA_MAPS_API_KEY: ${OLA_MAPS_API_KEY:?Set OLA_MAPS_API_KEY in the production environment file or shell}
+      OLA_MAPS_BASE_URL: ${OLA_MAPS_BASE_URL:-https://api.olamaps.io}
+      OLA_MAPS_TIMEOUT_SECONDS: ${OLA_MAPS_TIMEOUT_SECONDS:-8}
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${PORT:-8000}:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

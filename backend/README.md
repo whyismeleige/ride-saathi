@@ -83,6 +83,51 @@ The API listens on `http://localhost:8000` (see `.env` / your shell). The
 Ola API key is the only required variable; without it every autocomplete
 request returns `NOT_CONFIGURED`.
 
+## Docker Compose
+
+Run these commands from `backend/` with Docker Compose v2 installed.
+
+### Local development
+
+Create `.env` from `.env.example` if it does not exist, then set your Ola key.
+
+```bash
+docker compose up --build -d --wait
+docker compose logs -f backend
+docker compose down
+```
+
+The API is available at `http://localhost:8000`. Changes under `app/` reload
+automatically. Rebuild after changing `pyproject.toml` or `uv.lock`. Set
+`BIND_HOST=0.0.0.0` in `.env` to connect from a physical phone on your LAN.
+Set `PORT` to change the host port; the container always listens on port 8000.
+
+### Production
+
+Create `.env.production` from `.env.production.example` and set
+`OLA_MAPS_API_KEY`. This file is ignored by Git and excluded from Docker builds.
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml up --build -d --wait
+docker compose --env-file .env.production -f compose.production.yaml logs -f backend
+docker compose --env-file .env.production -f compose.production.yaml down
+```
+
+The production file is standalone and requires a nonempty Ola key. It runs
+the image's bundled code without hot reload or source mounts, as a non-root
+user with a read-only filesystem, bounded logs, and automatic restart after
+process exit or Docker restart. Health checks report liveness; an unhealthy
+status alone does not restart the container.
+
+Put a host HTTPS reverse proxy in front of `127.0.0.1:8000` (or the chosen
+`PORT`). TLS is handled by that proxy. Both configurations disable Uvicorn's
+access log because query strings can contain searched addresses; the app
+still logs request paths, status codes, latency, and request IDs.
+
+Local and production use separate Compose project names. Choose different
+host ports if running both on the same machine. Shell variables override
+values in the selected environment file.
+
 ## Tests
 
 ```bash
