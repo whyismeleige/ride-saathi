@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.core.ui.components.ExpandableAddress
 import com.ridesaathi.app.core.ui.components.LargeButton
 import com.ridesaathi.app.core.ui.components.MapPreview
@@ -24,11 +25,13 @@ internal fun RideConfirmationScreen(
     language: String,
     word: (String) -> String,
     onInstall: () -> Unit,
-    onLocationSettings: () -> Unit
+    onLocationSettings: () -> Unit,
+    onConfirm: () -> Unit = {},
+    onChooseAgain: () -> Unit = {}
 ) {
-    Text(word("confirm"), style = MaterialTheme.typography.headlineMedium)
+    RideSectionTitle(word("confirm"))
     SectionCard {
-        RideIcon(if (place.isHome) "home" else "pin", Modifier.size(36.dp))
+        RideIconBadge(if (place.isHome) "home" else "pin", place.isHome)
         Text(
             if (place.isHome) word("home") else place.name,
             style = MaterialTheme.typography.headlineLarge
@@ -45,6 +48,8 @@ internal fun RideConfirmationScreen(
     }
     MapPreview(mapUrl, language)
     Text(word("handoffHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    LargeButton(word(if (working) "working" else "yes"), enabled = !working && uberInstalled, onClick = onConfirm)
+    OutlinedButton(onClick = onChooseAgain, enabled = !working, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("no")) }
 }
 
 @Composable
@@ -59,6 +64,8 @@ internal fun AppSession.RideConfirmationRoute() {
         profile.language,
         ::word,
         ::openStore,
-        ::openLocationSettings
+        ::openLocationSettings,
+        ride::confirmRide,
+        destination::returnToChoices
     )
 }

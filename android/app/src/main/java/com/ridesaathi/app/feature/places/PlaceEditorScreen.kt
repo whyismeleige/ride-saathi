@@ -12,6 +12,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.*
+import com.ridesaathi.app.core.ui.theme.RideShapes
 import com.ridesaathi.app.core.ui.components.LargeButton
 import com.ridesaathi.app.core.ui.components.MapPreview
 import com.ridesaathi.app.core.ui.components.SectionCard
@@ -36,8 +38,9 @@ internal fun PlaceEditorScreen(
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                RideScenicHeader(home = state.pendingHome)
                 if (state.pendingHome) {
-                    Text(word("home"), style = MaterialTheme.typography.titleLarge)
+                    RideSectionTitle(word("onboardingHomeTitle"))
                 } else {
                     OutlinedTextField(
                         value = state.draftName,
@@ -46,6 +49,7 @@ internal fun PlaceEditorScreen(
                         supportingText = { Text(word("placeNameHint")) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        shape = RideShapes.medium,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                     )

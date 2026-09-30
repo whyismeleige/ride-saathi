@@ -5,6 +5,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.*
+import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.core.ui.components.PlaceRow
 import com.ridesaathi.app.core.ui.components.SpeechTranscript
 import com.ridesaathi.app.domain.model.SavedPlace
@@ -21,16 +23,14 @@ internal fun ClarificationScreen(
     onSelect: (SavedPlace) -> Unit,
     onCancel: () -> Unit
 ) {
-    Text(
-        word(if (shared) "selectSharedLocation" else "ambiguous"),
-        style = MaterialTheme.typography.headlineMedium
-    )
+    RideScenicHeader()
+    RideSectionTitle(word(if (shared) "selectSharedLocation" else "ambiguous"))
     if (shared) {
         Text(word("sharedSearchHint"))
         Text(address, style = MaterialTheme.typography.bodyLarge)
     } else SpeechTranscript(transcript, transcriptIsFinal, word)
-    choices.forEach { PlaceRow(it, word) { onSelect(it) } }
-    OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) { Text(word("cancel")) }
+    choices.forEach { RideCandidateCard(if (it.isHome) word("home") else it.name, it.address, { onSelect(it) }, it.isHome) }
+    OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text(word("cancel")) }
 }
 
 @Composable

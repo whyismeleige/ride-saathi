@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -23,6 +24,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
+import com.ridesaathi.app.core.ui.components.*
+import com.ridesaathi.app.core.ui.theme.RideShapes
 import com.ridesaathi.app.core.ui.components.RideIcon
 
 @Composable
@@ -35,7 +38,9 @@ internal fun AddressPicker(
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val inspection = LocalInspectionMode.current
     LaunchedEffect(Unit) {
+        if (inspection) return@LaunchedEffect
         focusRequester.requestFocus()
         keyboardController?.show()
     }
@@ -47,7 +52,8 @@ internal fun AddressPicker(
             label = { Text(word("address")) },
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(focusRequester),
             singleLine = true,
-            shape = RoundedCornerShape(20.dp),
+            leadingIcon = { RideIcon("search") },
+            shape = RideShapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -100,7 +106,7 @@ internal fun AddressPicker(
                     focusManager.clearFocus()
                     onAction(PlaceEditorAction.SelectAddress(result))
                 }, modifier = Modifier.fillMaxWidth().animateContentSize(),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RideShapes.medium,
                     colors = CardDefaults.outlinedCardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                     ),
@@ -110,17 +116,9 @@ internal fun AddressPicker(
                         Modifier.padding(14.dp), verticalAlignment = Alignment.Top,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                                RideIcon("pin", Modifier.size(22.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            }
-                        }
+                        RideIconBadge("pin")
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(title, style = MaterialTheme.typography.titleSmall)
+                            Text(title, style = MaterialTheme.typography.titleMedium)
                             if (remainder.isNotBlank()) {
                                 Row(verticalAlignment = Alignment.Bottom) {
                                     Text(

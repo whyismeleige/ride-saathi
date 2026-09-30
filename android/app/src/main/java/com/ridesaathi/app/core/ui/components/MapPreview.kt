@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,11 @@ private enum class MapStatus { Loading, Ready, Error }
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun MapPreview(mapUrl: String, language: String) {
+    // Android Studio cannot host the map WebView; only previews substitute decorative artwork.
+    if (LocalInspectionMode.current) {
+        RideScenicHeader(home = true, modifier = Modifier.height(220.dp))
+        return
+    }
     var attempt by remember(mapUrl) { mutableIntStateOf(0) }
     key(mapUrl, attempt) {
         var status by remember { mutableStateOf(MapStatus.Loading) }
