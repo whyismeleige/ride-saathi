@@ -29,7 +29,10 @@ internal fun HomeScreen(
         modifier = Modifier.semantics { heading() })
     Text(word("rideTo"), style = MaterialTheme.typography.bodyLarge, color = RideColors.Slate)
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        RideVoiceButton(voice.listening, word, onMicrophone)
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            RideScenicHeader(modifier = Modifier.height(120.dp))
+            RideVoiceButton(voice.listening, word, onMicrophone)
+        }
         Text(word(if (voice.listening) "listening" else "tapSpeak"), style = MaterialTheme.typography.titleMedium)
         Text(word("voiceHint"), textAlign = TextAlign.Center, color = RideColors.Slate,
             modifier = Modifier.padding(top = 8.dp, bottom = 16.dp))

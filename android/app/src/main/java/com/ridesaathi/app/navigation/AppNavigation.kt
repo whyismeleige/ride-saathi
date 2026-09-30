@@ -31,8 +31,6 @@ import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
 import androidx.compose.ui.semantics.contentDescription
-import com.ridesaathi.app.core.ui.components.RideIcon
-import com.ridesaathi.app.core.ui.components.StickyMicrophone
 import com.ridesaathi.app.feature.destination.DestinationSearchScreen
 import com.ridesaathi.app.feature.home.HomeRoute
 import com.ridesaathi.app.feature.onboarding.OnboardingStep

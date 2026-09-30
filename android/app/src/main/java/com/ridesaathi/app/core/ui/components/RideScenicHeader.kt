@@ -12,7 +12,7 @@ import com.ridesaathi.app.core.ui.theme.RideColors
 
 /** Decorative normalized artwork. Replace this component with final vectors without changing screens. */
 @Composable
-internal fun RideScenicHeader(home: Boolean = false, modifier: Modifier = Modifier) {
+internal fun RideScenicHeader(modifier: Modifier = Modifier, home: Boolean = false) {
     Canvas(modifier.fillMaxWidth().height(156.dp)) {
         scale(size.width / 360f, size.height / 156f, pivot = Offset.Zero) {
             drawRoundRect(Brush.verticalGradient(listOf(RideColors.Sky, RideColors.Cream), endY = 150f), size = Size(360f,156f), cornerRadius = CornerRadius(24f))

@@ -14,9 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.core.ui.theme.RideShapes
-import com.ridesaathi.app.core.ui.components.LargeButton
-import com.ridesaathi.app.core.ui.components.MapPreview
-import com.ridesaathi.app.core.ui.components.SectionCard
 import com.ridesaathi.app.data.places.OpenStreetMapPreviewProvider
 
 @Composable

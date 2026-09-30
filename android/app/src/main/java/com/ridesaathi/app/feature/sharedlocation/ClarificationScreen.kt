@@ -7,8 +7,6 @@ import androidx.compose.ui.Modifier
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
 import androidx.compose.ui.unit.dp
-import com.ridesaathi.app.core.ui.components.PlaceRow
-import com.ridesaathi.app.core.ui.components.SpeechTranscript
 import com.ridesaathi.app.domain.model.SavedPlace
 import com.ridesaathi.app.navigation.AppScreen
 

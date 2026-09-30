@@ -7,11 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
-import com.ridesaathi.app.core.ui.components.ExpandableAddress
-import com.ridesaathi.app.core.ui.components.LargeButton
-import com.ridesaathi.app.core.ui.components.MapPreview
-import com.ridesaathi.app.core.ui.components.RideIcon
-import com.ridesaathi.app.core.ui.components.SectionCard
 import com.ridesaathi.app.data.places.OpenStreetMapPreviewProvider
 import com.ridesaathi.app.domain.model.SavedPlace
 
@@ -55,17 +50,18 @@ internal fun RideConfirmationScreen(
 @Composable
 internal fun AppSession.RideConfirmationRoute() {
     val place = ride.state.selected ?: return
+
     RideConfirmationScreen(
-        place,
-        ride.state.handoffInProgress,
-        uberInstalled(),
-        message == word("locationUnavailable"),
-        OpenStreetMapPreviewProvider(mapEndpoint).url(place.latitude, place.longitude),
-        profile.language,
-        ::word,
-        ::openStore,
-        ::openLocationSettings,
-        ride::confirmRide,
-        destination::returnToChoices
+        place = place,
+        working = ride.state.handoffInProgress,
+        uberInstalled = uberInstalled(),
+        locationUnavailable = message == word("locationUnavailable"),
+        mapUrl = OpenStreetMapPreviewProvider(mapEndpoint).url(place.latitude, place.longitude),
+        language = profile.language,
+        word = ::word,
+        onInstall = ::openStore,
+        onLocationSettings = ::openLocationSettings,
+        onConfirm = ride::confirmRide,
+        onChooseAgain = destination::returnToChoices
     )
 }

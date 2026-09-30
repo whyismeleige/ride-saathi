@@ -40,9 +40,6 @@ import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.feature.settings.LanguageChoices
 import com.ridesaathi.app.core.ui.theme.RideShapes
 import com.ridesaathi.app.core.ui.theme.RideColors
-import com.ridesaathi.app.core.ui.components.LargeButton
-import com.ridesaathi.app.core.ui.components.PlaceRow
-import com.ridesaathi.app.core.ui.components.RideIcon
 import com.ridesaathi.app.domain.model.Profile
 import com.ridesaathi.app.domain.model.SavedPlace
 import com.ridesaathi.app.feature.tutorial.TutorialController
@@ -120,7 +117,9 @@ internal fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 val slide = if (activeStep == OnboardingStep.Introduction) slides[page] else null
-                RideScenicHeader(home = activeStep == OnboardingStep.Home || activeStep == OnboardingStep.Places)
+                if (activeStep != OnboardingStep.Introduction) {
+                    RideScenicHeader(home = activeStep == OnboardingStep.Home || activeStep == OnboardingStep.Places)
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         word(slide?.titleKey ?: activeStep.titleKey),
@@ -138,6 +137,7 @@ internal fun OnboardingScreen(
                 when (activeStep) {
                     OnboardingStep.Language -> LanguageChoices(profile.language, onLanguageChange)
                     OnboardingStep.Introduction -> {
+                        RideScenicHeader(modifier = Modifier.height(220.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
                             slides.indices.forEach { index ->
                                 Box(Modifier.size(if (index == page) 10.dp else 8.dp)
@@ -180,7 +180,7 @@ internal fun OnboardingScreen(
                         OutlinedButton(
                             onClick = onAddPlace,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RideShapes.medium,
                             contentPadding = PaddingValues(16.dp)
                         ) {
                             RideIcon("pin", Modifier.size(22.dp))

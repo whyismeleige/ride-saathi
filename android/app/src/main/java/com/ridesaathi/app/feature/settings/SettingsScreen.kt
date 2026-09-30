@@ -9,10 +9,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
 import com.ridesaathi.app.core.ui.components.*
-import com.ridesaathi.app.core.ui.components.LargeButton
-import com.ridesaathi.app.core.ui.components.PlaceRow
-import com.ridesaathi.app.core.ui.components.RideIcon
-import com.ridesaathi.app.core.ui.components.SectionCard
 import com.ridesaathi.app.domain.model.SavedPlace
 import com.ridesaathi.app.feature.tutorial.TutorialMode
 import com.ridesaathi.app.navigation.AppScreen

@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.core.ui.theme.RideShapes
-import com.ridesaathi.app.core.ui.components.RideIcon
 
 @Composable
 internal fun AddressPicker(

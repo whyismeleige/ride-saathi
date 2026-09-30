@@ -20,9 +20,9 @@ import androidx.compose.ui.unit.dp
 @Composable
 internal fun LargeButton(
     label: String,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     maxLines: Int = Int.MAX_VALUE,
-    modifier: Modifier = Modifier.fillMaxWidth(),
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -36,7 +36,7 @@ internal fun LargeButton(
         onClick = onClick, enabled = enabled, shape = com.ridesaathi.app.core.ui.theme.RidePill,
         interactionSource = interactionSource,
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
-        modifier = modifier.heightIn(min = 64.dp).scale(scale)
+        modifier = modifier.fillMaxWidth().heightIn(min = 64.dp).scale(scale)
             .animateContentSize(tween(220, easing = FastOutSlowInEasing))
     ) {
         Text(
