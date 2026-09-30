@@ -26,8 +26,31 @@ def build_client() -> httpx.Client:
     )
 
 
+_shared_client: httpx.Client | None = None
+
+
+def get_shared_client() -> httpx.Client:
+    """Process-wide reused connection pool for autocomplete requests."""
+    global _shared_client
+    if _shared_client is None:
+        _shared_client = build_client()
+    return _shared_client
+
+
+def close_shared_client() -> None:
+    """Release the shared pool; called on FastAPI shutdown."""
+    global _shared_client
+    if _shared_client is not None:
+        _shared_client.close()
+        _shared_client = None
+
+
 class OlaMapsProvider:
     """Adapt Ola Maps to the provider-neutral search contract."""
+
+    def __init__(self, client: httpx.Client | None = None) -> None:
+        # Tests may inject a MockTransport-backed client; runtime uses shared pool.
+        self._client = client
 
     def search_places(
         self, query: str, language: str, lat: float | None = None, lng: float | None = None,
@@ -51,9 +74,9 @@ class OlaMapsProvider:
             params["strictbounds"] = "true"
 
         url = f"{settings.ola_maps_base_url}{AUTOCOMPLETE_PATH}"
+        client = self._client or get_shared_client()
         try:
-            with build_client() as client:
-                response = client.get(url, params=params)
+            response = client.get(url, params=params)
         except httpx.TimeoutException:
             raise MapsError("UNAVAILABLE") from None
         except httpx.HTTPError:

@@ -4,7 +4,11 @@ from app.main import app
 
 
 def test_existing_routes_and_lifespan(client):
-    assert set(app.openapi()["paths"]) == {"/health", "/v1/places/autocomplete"}
+    assert set(app.openapi()["paths"]) == {
+        "/health",
+        "/ready",
+        "/v1/places/autocomplete",
+    }
     assert client.get("/openapi.json").status_code == 200
     assert client.get("/docs").status_code == 404
     assert client.get("/redoc").status_code == 404
@@ -32,6 +36,7 @@ def test_application_shutdown_disposes_database_pool(monkeypatch):
     from unittest.mock import AsyncMock
 
     from fastapi.testclient import TestClient
+
     from app import main
 
     dispose = AsyncMock()

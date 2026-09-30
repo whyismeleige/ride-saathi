@@ -16,6 +16,11 @@ def clear_settings_environment(monkeypatch):
 @pytest.mark.parametrize("environment", ["development", "testing", "production"])
 def test_supported_environments(monkeypatch, environment):
     monkeypatch.setenv("ENVIRONMENT", environment)
+    if environment == "production":
+        monkeypatch.setenv("OLA_MAPS_API_KEY", "test-key")
+        monkeypatch.setenv(
+            "DATABASE_URL", "postgresql://user:password@localhost/db"
+        )
     assert Settings(_env_file=None).environment == environment
 
 

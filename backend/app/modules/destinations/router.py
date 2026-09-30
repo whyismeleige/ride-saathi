@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.core.config import settings
 from app.dependencies.services import get_destination_service
 from app.integrations.maps.base import MapsError
 from app.modules.destinations.schemas import PlacesResponse
@@ -44,8 +45,48 @@ def _invalid() -> JSONResponse:
     return _error("INVALID_REQUEST")
 
 
+# Minimal in-memory abuse protection for the privileged maps proxy.
+# Single-instance only: use reverse-proxy throttling when scaling horizontally.
+# X-Forwarded-For is honored only when TRUST_PROXY_HEADERS is explicitly enabled.
+_rate_buckets: dict[str, list[float]] = {}
+
+
+def _client_key(request: Request) -> str:
+    if settings.trust_proxy_headers:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return f"proxy:{first}"
+    client = request.client
+    return client.host if client else "unknown"
+
+
+def _check_rate_limit(request: Request) -> JSONResponse | None:
+    import time
+
+    now = time.monotonic()
+    window = settings.maps_rate_limit_window_seconds
+    limit = settings.maps_rate_limit_per_minute
+    key = _client_key(request)
+    hits = [t for t in _rate_buckets.get(key, []) if now - t < window]
+    if len(hits) >= limit:
+        _rate_buckets[key] = hits
+        return JSONResponse(
+            status_code=429,
+            content={"error": {"code": "QUOTA", "message": ERROR_MESSAGES["QUOTA"]}},
+        )
+    hits.append(now)
+    _rate_buckets[key] = hits
+    return None
+
+
+def _reset_rate_limit() -> None:
+    _rate_buckets.clear()
+
+
 @router.get("/autocomplete", response_model=PlacesResponse)
 def autocomplete(
+    request: Request,
     service: Annotated[DestinationService, Depends(get_destination_service)],
     q: str = Query(default=""),
     language: str = Query(default="en"),
@@ -56,7 +97,12 @@ def autocomplete(
 
     Client input is treated as untrusted: query length, language, and coordinate
     pairing are validated here before anything reaches the upstream API.
+    Abuse protection is a single-instance in-memory window; deployments that
+    scale horizontally must add reverse-proxy throttling in front of this.
     """
+    limited = _check_rate_limit(request)
+    if limited is not None:
+        return limited
     query = q.strip()
     if not query or len(query) < MIN_QUERY_LENGTH or len(query) > MAX_QUERY_LENGTH:
         return _invalid()
