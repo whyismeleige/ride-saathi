@@ -1,13 +1,20 @@
 from __future__ import annotations
-from datetime import datetime
+
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, Text, UniqueConstraint, func, text
+
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base, Timestamps, CreatedAt, UUIDPrimaryKey
-from app.models.enums import pg_enum
-from app.models.enums import DestinationSource
+
+from app.db.base import Base, CreatedAt, UUIDPrimaryKey
+from app.models.enums import DestinationSource, pg_enum
+
+if TYPE_CHECKING:
+    from app.models.ride_session import RideSession
+    from app.models.saved_place import SavedPlace
+    from app.models.user import User
 
 class DestinationResolution(UUIDPrimaryKey, CreatedAt, Base):
     __tablename__ = "destination_resolutions"
@@ -32,6 +39,9 @@ class DestinationResolution(UUIDPrimaryKey, CreatedAt, Base):
     was_confirmed: Mapped[bool] = mapped_column(server_default=text("false"))
     was_corrected: Mapped[bool] = mapped_column(server_default=text("false"))
     candidates: Mapped[list[dict]] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    user: Mapped[User] = relationship(lazy="raise")
+    ride_session: Mapped[RideSession] = relationship(lazy="raise")
+    selected_saved_place: Mapped[SavedPlace | None] = relationship(lazy="raise")
 
 class DestinationCorrection(UUIDPrimaryKey, CreatedAt, Base):
     __tablename__ = "destination_corrections"
@@ -42,3 +52,5 @@ class DestinationCorrection(UUIDPrimaryKey, CreatedAt, Base):
     normalized_query: Mapped[str] = mapped_column(Text)
     rejected_candidate: Mapped[dict | None] = mapped_column(JSONB)
     accepted_candidate: Mapped[dict] = mapped_column(JSONB)
+    user: Mapped[User] = relationship(lazy="raise")
+    resolution: Mapped[DestinationResolution] = relationship(lazy="raise")

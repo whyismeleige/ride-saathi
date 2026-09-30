@@ -1,13 +1,16 @@
 from __future__ import annotations
-from datetime import datetime
-from decimal import Decimal
+
+from typing import TYPE_CHECKING
 from uuid import UUID
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import JSONB
+
+from sqlalchemy import ForeignKey, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base, Timestamps, CreatedAt, UUIDPrimaryKey
-from app.models.enums import pg_enum
-from app.models.enums import ConfirmationMode
+
+from app.db.base import Base, Timestamps, UUIDPrimaryKey
+from app.models.enums import ConfirmationMode, pg_enum
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 class UserPreference(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "user_preferences"
@@ -16,3 +19,4 @@ class UserPreference(UUIDPrimaryKey, Timestamps, Base):
     preferred_ride_provider: Mapped[str] = mapped_column(Text, server_default="uber")
     preferred_ride_type: Mapped[str | None] = mapped_column(Text)
     auto_confirm_high_confidence: Mapped[bool] = mapped_column(server_default=text("false"))
+    user: Mapped[User] = relationship(lazy="raise")

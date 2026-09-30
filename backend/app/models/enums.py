@@ -1,5 +1,7 @@
 from enum import StrEnum
+
 from sqlalchemy.dialects.postgresql import ENUM
+
 
 class LanguageCode(StrEnum):
     EN = "en"

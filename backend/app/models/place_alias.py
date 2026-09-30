@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from datetime import datetime
-from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import JSONB
+
+from sqlalchemy import CheckConstraint, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base, Timestamps, CreatedAt, UUIDPrimaryKey
-from app.models.enums import pg_enum
-from app.models.enums import AliasSource, LanguageCode
+
+from app.db.base import Base, Timestamps, UUIDPrimaryKey
+from app.models.enums import AliasSource, LanguageCode, pg_enum
+
+if TYPE_CHECKING:
+    from app.models.saved_place import SavedPlace
 
 class PlaceAlias(UUIDPrimaryKey, Timestamps, Base):
     __tablename__ = "place_aliases"
@@ -23,3 +27,4 @@ class PlaceAlias(UUIDPrimaryKey, Timestamps, Base):
     source: Mapped[AliasSource] = mapped_column(pg_enum(AliasSource, "alias_source"), server_default="user_created")
     use_count: Mapped[int] = mapped_column(server_default="0")
     last_used_at: Mapped[datetime | None]
+    saved_place: Mapped[SavedPlace] = relationship(lazy="raise")
