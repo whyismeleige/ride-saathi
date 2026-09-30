@@ -27,8 +27,10 @@ externalNativeBuild/
 
 # Python backend
 backend/.venv/
-backend/.env
-backend/.env.production
+.env
+.env.*
+!.env.example
+!.env.production.example
 __pycache__/
 *.pyc
 .pytest_cache/

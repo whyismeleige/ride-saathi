@@ -14,6 +14,11 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      DB_ECHO: ${DB_ECHO:-false}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-0}
+      DB_NULL_POOL: ${DB_NULL_POOL:-false}
       ENVIRONMENT: production
       PORT: "8000"
       OLA_MAPS_API_KEY: ${OLA_MAPS_API_KEY:?Set OLA_MAPS_API_KEY in the production environment file or shell}

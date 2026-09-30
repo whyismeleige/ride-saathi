@@ -1,8 +1,9 @@
 # Ride Saathi Backend
 
-A minimal FastAPI service that sits between the Ride Saathi Android app and the
-Ola Maps API. Its only real job is to keep the Ola API key on the server so it
-cannot be extracted from an installed APK.
+A FastAPI backend with an Ola Maps proxy and an async PostgreSQL persistence
+foundation for Ride Saathi V1. The Ola API key stays on the server so it cannot
+be extracted from an installed APK. Database architecture, migrations, local
+setup, tests, and Supabase connection guidance are in [the database guide](../docs/database.md).
 
 ```
 Android app
@@ -128,6 +129,24 @@ Local and production use separate Compose project names. Choose different
 host ports if running both on the same machine. Shell variables override
 values in the selected environment file.
 
+## PostgreSQL persistence
+
+The database uses SQLAlchemy 2.x async ORM, asyncpg, and Alembic. Set
+`DATABASE_URL` in `.env` before using database services. No schema changes run at
+application startup. For a host-run app with local PostgreSQL:
+
+```bash
+# From backend/; local development credentials only:
+docker compose up -d --wait postgres
+# Set DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ride_saathi in .env
+uv run --locked alembic upgrade head
+```
+
+When using Compose for the backend too, run
+`docker compose run --rm backend alembic upgrade head` after building the image.
+See [database.md](../docs/database.md) for a dedicated PostgreSQL test database,
+port overrides, connection pooling and migration operations.
+
 ## Tests
 
 ```bash
@@ -135,6 +154,7 @@ cd backend
 uv run --locked pytest -q
 ```
 
+PostgreSQL tests require `TEST_DATABASE_URL` and otherwise explicitly skip.
 All upstream Ola calls are mocked with `httpx.MockTransport`; no real Ola
 quota is ever consumed by the test suite.
 
@@ -147,6 +167,7 @@ intentionally refresh all locked versions, then run the tests.
 
 | Variable                     | Required | Default                     | Notes                          |
 | ---------------------------- | -------- | --------------------------- | ------------------------------ |
+| `DATABASE_URL`              | for persistence | (none) | PostgreSQL async connection; see database guide. |
 | `OLA_MAPS_API_KEY`           | yes      | (none)                      | Server-only secret.            |
 | `PORT`                       | no       | `8000`                      | Honored by the Dockerfile.    |
 | `ENVIRONMENT`                | no       | `development`               | Informational.                |

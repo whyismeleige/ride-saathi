@@ -1,15 +1,34 @@
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
+from .db.session import dispose_engine
 from .routes.places import router as places_router
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s"
+)
 logger = logging.getLogger("ride-saathi")
 
-app = FastAPI(title="Ride Saathi API", version="1", docs_url=None, redoc_url=None)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        await dispose_engine()
+
+
+app = FastAPI(
+    title="Ride Saathi API",
+    version="1",
+    docs_url=None,
+    redoc_url=None,
+    lifespan=lifespan,
+)
 
 
 @app.middleware("http")
@@ -26,13 +45,18 @@ async def request_context(request: Request, call_next):
     except Exception:
         logger.info(
             "request path=%s status=500 latency_ms=%d request_id=%s",
-            request.url.path, round((time.perf_counter() - start) * 1000), request_id,
+            request.url.path,
+            round((time.perf_counter() - start) * 1000),
+            request_id,
         )
         raise
     response.headers["X-Request-Id"] = request_id
     logger.info(
         "request path=%s status=%d latency_ms=%d request_id=%s",
-        request.url.path, response.status_code, round((time.perf_counter() - start) * 1000), request_id,
+        request.url.path,
+        response.status_code,
+        round((time.perf_counter() - start) * 1000),
+        request_id,
     )
     return response
 

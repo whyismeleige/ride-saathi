@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
 COPY app ./app
+COPY alembic.ini ./
+COPY alembic ./alembic
 
 EXPOSE 8000
 
