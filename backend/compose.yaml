@@ -6,6 +6,7 @@ services:
     init: true
     environment:
       ENVIRONMENT: development
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PORT: "8000"
       OLA_MAPS_API_KEY: ${OLA_MAPS_API_KEY:-}
       OLA_MAPS_BASE_URL: ${OLA_MAPS_BASE_URL:-https://api.olamaps.io}

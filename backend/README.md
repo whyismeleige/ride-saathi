@@ -1,8 +1,13 @@
 # Ride Saathi Backend
 
-A minimal FastAPI service that sits between the Ride Saathi Android app and the
-Ola Maps API. Its only real job is to keep the Ola API key on the server so it
-cannot be extracted from an installed APK.
+A modular FastAPI backend for Ride Saathi. Its current feature is place search
+through Ola Maps, keeping the API key on the server. Future domains will share
+one application and one PostgreSQL database.
+
+See the [backend architecture guide](../docs/architecture/backend-structure.md)
+for module ownership, dependency flow, and instructions for adding features or
+providers. Persistence and additional business features are not implemented in
+this architecture baseline.
 
 ```
 Android app
@@ -72,11 +77,11 @@ cp .env.example .env
 Run it:
 
 ```bash
-# Loads values from .env (uvicorn's built-in --env-file):
-uv run --locked uvicorn app.main:app --reload --env-file .env
+# Settings automatically load backend/.env; shell values take priority:
+uv run --locked uvicorn app.main:app --reload --no-access-log
 # or export the variables yourself:
 export OLA_MAPS_API_KEY=your_key
-uv run --locked uvicorn app.main:app --reload --port 8000
+uv run --locked uvicorn app.main:app --reload --port 8000 --no-access-log
 ```
 
 The API listens on `http://localhost:8000` (see `.env` / your shell). The
@@ -135,8 +140,9 @@ cd backend
 uv run --locked pytest -q
 ```
 
-All upstream Ola calls are mocked with `httpx.MockTransport`; no real Ola
-quota is ever consumed by the test suite.
+Tests are organized into `tests/unit/`, `tests/integration/`, and `tests/api/`.
+All upstream Ola calls use fake providers or `httpx.MockTransport`; shared
+fixtures block real HTTPX requests. No real credentials or database are needed.
 
 Dependencies live in `pyproject.toml`; commit `uv.lock` alongside dependency
 changes. Use `uv add <package>` for runtime dependencies and
@@ -149,11 +155,16 @@ intentionally refresh all locked versions, then run the tests.
 | ---------------------------- | -------- | --------------------------- | ------------------------------ |
 | `OLA_MAPS_API_KEY`           | yes      | (none)                      | Server-only secret.            |
 | `PORT`                       | no       | `8000`                      | Honored by the Dockerfile.    |
-| `ENVIRONMENT`                | no       | `development`               | Informational.                |
+| `ENVIRONMENT`                | no       | `development`               | `development`, `testing`, or `production`. |
+| `LOG_LEVEL`                  | no       | `INFO`                      | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
+| `DATABASE_URL`               | no       | (empty)                     | Reserved for future PostgreSQL persistence. |
 | `OLA_MAPS_BASE_URL`          | no       | `https://api.olamaps.io`    | Useful for sandbox testing.   |
 | `OLA_MAPS_TIMEOUT_SECONDS`   | no       | `8`                         | Short upstream timeout.       |
 
-`.env` is local-only and ignored by Git.
+`app/core/config.py` uses `pydantic-settings` and loads `backend/.env` regardless
+of the current working directory. Shell variables take priority, including an
+explicitly blank API key. `.env` is local-only and ignored by Git. Future provider
+variables are documented in the architecture guide and added when implemented.
 
 ## Deployment
 
