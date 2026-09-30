@@ -43,6 +43,14 @@ fun RideIcon(
                 cap = StrokeCap.Round
             )
         when (kind) {
+            "car" -> {
+                drawRoundRect(color, Offset(2*s,10*s),Size(20*s,9*s), androidx.compose.ui.geometry.CornerRadius(3*s))
+                val roof = Path().apply { moveTo(5*s,10*s); lineTo(8*s,4*s); lineTo(17*s,4*s); lineTo(20*s,10*s); close() }
+                drawPath(roof,color,style=stroke)
+                drawCircle(color,2*s,Offset(6*s,21*s)); drawCircle(color,2*s,Offset(18*s,21*s))
+            }
+            "close" -> { line(6f,6f,18f,18f); line(18f,6f,6f,18f) }
+
             "person" -> {
                 drawCircle(color, 4 * s, Offset(12 * s, 7 * s), style = stroke)
                 drawArc(color, 180f, 180f, false, Offset(4 * s, 14 * s), Size(16 * s, 14 * s), style = stroke)

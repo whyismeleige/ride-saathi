@@ -29,11 +29,11 @@ internal fun LargeButton(
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) 0.98f else 1f,
-        animationSpec = spring(dampingRatio = 0.72f, stiffness = 460f),
+        animationSpec = tween(180),
         label = "largeButtonPressScale"
     )
     Button(
-        onClick = onClick, enabled = enabled, shape = RoundedCornerShape(18.dp),
+        onClick = onClick, enabled = enabled, shape = com.ridesaathi.app.core.ui.theme.RidePill,
         interactionSource = interactionSource,
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         modifier = modifier.heightIn(min = 64.dp).scale(scale)
