@@ -5,11 +5,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import httpx
 import pytest
+from fastapi.testclient import TestClient
+from app.main import app
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import database_url
+from app.core.config import database_url
 from app.db.session import create_engine
 
 
@@ -51,3 +54,29 @@ async def db(postgres_url):
             await transaction.rollback()
     finally:
         await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def block_provider_network(monkeypatch):
+    def blocked(*args, **kwargs):
+        raise AssertionError("Use a fake provider or httpx.MockTransport in tests")
+
+    async def async_blocked(*args, **kwargs):
+        blocked()
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", blocked)
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", async_blocked)
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def override_dependency():
+    original = app.dependency_overrides.copy()
+    yield app.dependency_overrides
+    app.dependency_overrides.clear()
+    app.dependency_overrides.update(original)

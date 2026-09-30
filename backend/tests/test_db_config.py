@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.pool import NullPool
 
-from app.config import Settings, database_url
+from app.core.config import Settings, database_url
 from app.db import session as db_session
 
 

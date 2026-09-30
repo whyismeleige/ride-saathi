@@ -2,9 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 import httpx
 
-from app import config
+from app.core import config
 from app.main import app
-from app.services import ola_maps
+from app.integrations.maps import ola_maps
 
 client = TestClient(app)
 

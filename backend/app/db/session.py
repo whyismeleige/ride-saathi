@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
-from app.config import database_url, settings
+from app.core.config import database_url, settings
 
 
 def create_engine(url: str, *, null_pool: bool = False) -> AsyncEngine:

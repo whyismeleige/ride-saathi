@@ -1,6 +1,6 @@
 """Import all persistent models so Alembic sees complete metadata.
 
-The existing places module contains API DTOs, not database entities.
+Destination API DTOs live in app.modules.destinations.schemas.
 """
 
 from app.models.ride_event import RideEvent

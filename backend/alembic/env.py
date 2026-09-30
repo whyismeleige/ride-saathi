@@ -7,7 +7,7 @@ from alembic import context
 from sqlalchemy import Connection
 
 from app import models  # noqa: F401 -- register every mapped class
-from app.config import database_url, settings
+from app.core.config import database_url, settings
 from app.db.base import Base
 from app.db.session import create_engine
 

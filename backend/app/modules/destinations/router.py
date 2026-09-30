@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
-from ..models.places import PlacesResponse
-from ..services.ola_maps import OlaMapsError, SUPPORTED_LANGUAGES, search
+from app.dependencies.services import get_destination_service
+from app.integrations.maps.base import MapsError
+from app.modules.destinations.schemas import PlacesResponse
+from app.modules.destinations.service import SUPPORTED_LANGUAGES, DestinationService
 
-router = APIRouter(prefix="/v1")
+router = APIRouter(prefix="/places")
 
 MAX_QUERY_LENGTH = 200
 MIN_QUERY_LENGTH = 3
@@ -40,8 +44,9 @@ def _invalid() -> JSONResponse:
     return _error("INVALID_REQUEST")
 
 
-@router.get("/places/autocomplete", response_model=PlacesResponse)
+@router.get("/autocomplete", response_model=PlacesResponse)
 def autocomplete(
+    service: Annotated[DestinationService, Depends(get_destination_service)],
     q: str = Query(default=""),
     language: str = Query(default="en"),
     lat: float | None = Query(default=None),
@@ -68,7 +73,7 @@ def autocomplete(
         return _invalid()
 
     try:
-        places = search(query, normalized_language, lat=lat, lng=lng)
-    except OlaMapsError as error:
+        places = service.search(query, normalized_language, lat=lat, lng=lng)
+    except MapsError as error:
         return _error(error.category)
     return PlacesResponse(places=places)

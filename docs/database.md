@@ -9,10 +9,11 @@ Alpha/beta:  FastAPI → SQLAlchemy → Supabase-hosted PostgreSQL
 ```
 
 Supabase is managed PostgreSQL infrastructure. The application has no Supabase
-SDK or database-client dependency. The existing `app/routes` and `app/services`
-structure stays in place. `app/repositories` is ready for focused query helpers;
-no booking endpoints, authentication, Redis, or external provider integration
-are added by this foundation.
+SDK or database-client dependency. Feature routers and services live in
+`app/modules`, provider adapters in `app/integrations`, and shared settings in
+`app/core/config.py`. Persistent models currently live in `app/models`; add
+focused repositories alongside the feature that uses them. No booking endpoints,
+authentication, Redis, or Uber integration are added by this foundation.
 
 ## Local setup
 

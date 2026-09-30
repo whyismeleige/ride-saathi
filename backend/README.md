@@ -1,9 +1,11 @@
 # Ride Saathi Backend
 
-A FastAPI backend with an Ola Maps proxy and an async PostgreSQL persistence
-foundation for Ride Saathi V1. The Ola API key stays on the server so it cannot
-be extracted from an installed APK. Database architecture, migrations, local
-setup, tests, and Supabase connection guidance are in [the database guide](../docs/database.md).
+A modular FastAPI backend with an Ola Maps proxy and an async PostgreSQL
+persistence foundation for Ride Saathi V1. The Ola API key stays on the server.
+See the [backend architecture guide](../docs/architecture/backend-structure.md)
+for module ownership and dependency flow, and the
+[database guide](../docs/database.md) for migrations, local setup, tests, and
+Supabase connection guidance.
 
 ```
 Android app
@@ -73,11 +75,11 @@ cp .env.example .env
 Run it:
 
 ```bash
-# Loads values from .env (uvicorn's built-in --env-file):
-uv run --locked uvicorn app.main:app --reload --env-file .env
+# Settings automatically load backend/.env; shell values take priority:
+uv run --locked uvicorn app.main:app --reload --no-access-log
 # or export the variables yourself:
 export OLA_MAPS_API_KEY=your_key
-uv run --locked uvicorn app.main:app --reload --port 8000
+uv run --locked uvicorn app.main:app --reload --port 8000 --no-access-log
 ```
 
 The API listens on `http://localhost:8000` (see `.env` / your shell). The
@@ -154,9 +156,9 @@ cd backend
 uv run --locked pytest -q
 ```
 
-PostgreSQL tests require `TEST_DATABASE_URL` and otherwise explicitly skip.
-All upstream Ola calls are mocked with `httpx.MockTransport`; no real Ola
-quota is ever consumed by the test suite.
+Provider and API tests use fake providers or `httpx.MockTransport`; shared
+fixtures block real HTTPX requests. PostgreSQL tests require `TEST_DATABASE_URL`
+and otherwise explicitly skip. No real Ola quota is consumed by the test suite.
 
 Dependencies live in `pyproject.toml`; commit `uv.lock` alongside dependency
 changes. Use `uv add <package>` for runtime dependencies and
@@ -170,11 +172,15 @@ intentionally refresh all locked versions, then run the tests.
 | `DATABASE_URL`              | for persistence | (none) | PostgreSQL async connection; see database guide. |
 | `OLA_MAPS_API_KEY`           | yes      | (none)                      | Server-only secret.            |
 | `PORT`                       | no       | `8000`                      | Honored by the Dockerfile.    |
-| `ENVIRONMENT`                | no       | `development`               | Informational.                |
+| `ENVIRONMENT`                | no       | `development`               | `development`, `testing`, or `production`. |
+| `LOG_LEVEL`                  | no       | `INFO`                      | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. |
 | `OLA_MAPS_BASE_URL`          | no       | `https://api.olamaps.io`    | Useful for sandbox testing.   |
 | `OLA_MAPS_TIMEOUT_SECONDS`   | no       | `8`                         | Short upstream timeout.       |
 
-`.env` is local-only and ignored by Git.
+`app/core/config.py` uses `pydantic-settings` and loads `backend/.env` regardless
+of the current working directory. Shell variables take priority, including an
+explicitly blank API key. `.env` is local-only and ignored by Git. Future provider
+variables are documented in the architecture guide and added when implemented.
 
 ## Deployment
 
