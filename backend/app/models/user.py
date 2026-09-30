@@ -12,7 +12,6 @@ from app.models.enums import LanguageCode, UserStatus, pg_enum
 if TYPE_CHECKING:
     from app.models.ride_session import RideSession
     from app.models.saved_place import SavedPlace
-    from app.models.uber_credential import UberCredential
 
 
 class User(UUIDPrimaryKey, Timestamps, Base):
@@ -33,9 +32,6 @@ class User(UUIDPrimaryKey, Timestamps, Base):
     last_active_at: Mapped[datetime | None]
 
     saved_places: Mapped[list[SavedPlace]] = relationship(
-        back_populates="user", lazy="raise", passive_deletes="all"
-    )
-    uber_credential: Mapped[UberCredential | None] = relationship(
         back_populates="user", lazy="raise", passive_deletes="all"
     )
     ride_sessions: Mapped[list[RideSession]] = relationship(

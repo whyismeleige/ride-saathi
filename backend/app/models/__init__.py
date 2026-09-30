@@ -1,20 +1,10 @@
-"""Import all persistent models so Alembic sees complete metadata.
-
-Destination API DTOs live in app.modules.destinations.schemas.
-"""
-
-from app.models.ride_event import RideEvent
-from app.models.ride_request import RideRequest
-from app.models.ride_session import RideSession
-from app.models.saved_place import SavedPlace
-from app.models.uber_credential import UberCredential
 from app.models.user import User
+from app.models.user_preference import UserPreference
+from app.models.saved_place import SavedPlace
+from app.models.place_alias import PlaceAlias
+from app.models.ride_session import RideSession
+from app.models.destination_resolution import DestinationResolution, DestinationCorrection
+from app.models.session_event import SessionEvent
+from app.models.handoff_event import HandoffEvent
 
-__all__ = [
-    "RideEvent",
-    "RideRequest",
-    "RideSession",
-    "SavedPlace",
-    "UberCredential",
-    "User",
-]
+__all__ = ['User', 'UserPreference', 'SavedPlace', 'PlaceAlias', 'RideSession', 'DestinationResolution', 'DestinationCorrection', 'SessionEvent', 'HandoffEvent']
