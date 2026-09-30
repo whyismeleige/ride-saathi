@@ -13,7 +13,9 @@ SDK or database-client dependency. Feature routers and services live in
 `app/modules`, provider adapters in `app/integrations`, and shared settings in
 `app/core/config.py`. Persistent models currently live in `app/models`; add
 focused repositories alongside the feature that uses them. No booking endpoints,
-authentication, Redis, or Uber integration are added by this foundation.
+first-party authentication, Redis, or Uber booking APIs are added by this
+foundation. Uber is an external application we hand the user to via deep link;
+the backend never observes the provider's booking lifecycle.
 
 ## Local setup
 
@@ -101,12 +103,11 @@ async def endpoint(db: AsyncSession = Depends(get_db)):
 Each dependency lifecycle gets a session. It rolls back on exceptions (including
 cancellation), closes on exit, and never commits automatically. Closing also
 rolls back uncommitted work. Services own transactions and call repository query
-helpers with that session. Update a session/request and append its event in the
+helpers with that session. Update a session and append its event in the
 same transaction. Handle uniqueness errors with rollback or a savepoint; do not
-reuse a failed transaction. For repeated booking/webhook keys, services should
-load the existing record instead of repeating the external side effect. Database
-uniqueness prevents duplicate rows, but provider calls still need their own
-idempotency handling.
+reuse a failed transaction. Database uniqueness prevents duplicate rows for
+handoff events and alias/correction keys; it cannot replace provider-side
+idempotency because the backend never calls provider booking APIs.
 
 Relationships use `lazy="raise"` to avoid hidden I/O in async code. Explicitly
 load what a service needs with `selectinload`, a query, or `await db.refresh`.
@@ -116,83 +117,102 @@ Do not serialize ORM instances directly into HTTP responses.
 
 | Table | Meaning |
 | --- | --- |
-| `users` | Required name, optional unique phone/email, onboarding and language |
-| `saved_places` | User-owned named destinations, soft deletion, unique `(user_id, label)` |
-| `uber_credentials` | At most one encrypted provider credential set per user |
-| `ride_sessions` | Current/final configuration of the interaction and booking workflow |
-| `ride_requests` | Actual provider booking attempts, with unique idempotency keys |
-| `ride_events` | Append-only lifecycle history, with optional unique provider event IDs |
+| `users` | Nullable name before onboarding; nonblank name required once `onboarding_completed=true`; optional unique phone/email; status, language |
+| `user_preferences` | One row per user: confirmation mode, preferred provider/type, auto-confirm flag |
+| `saved_places` | User-owned named destinations, soft deletion, unique `(user_id, label)`, at most one active `home` per user |
+| `place_aliases` | Per-place spoken aliases, unique `(saved_place_id, normalized_alias)` |
+| `ride_sessions` | Ride Saathi intent/session state up to deep-link handoff — never a provider booking |
+| `destination_resolutions` | Destination-memory attempts with bounded (≤5) JSON candidates and confidence |
+| `destination_corrections` | At most one correction per resolution, feeding long-term destination memory |
+| `session_events` | Append-only minimal session analytics, no transcript/location payloads |
+| `handoff_events` | At most one handoff per session: handing control to an external provider app |
 
-`RideSession != RideRequest`: many provider attempts can belong to one workflow.
-Changes to destination or product update the session snapshot and append an event.
-History comes from `users → ride_sessions → ride_requests`, generally displaying
-completed/cancelled requests. Failed/abandoned sessions remain useful for analysis.
-There is no separate ride-history table.
+`RideSession` represents a Ride Saathi intent/session, NOT an Uber booking.
+`HandoffEvent` represents Ride Saathi handing control to an external ride
+provider through a deep link. Ride Saathi does not know whether a ride was
+ultimately booked unless a future verified provider integration supplies that
+information. History comes from `users → ride_sessions` plus the
+`destination_resolutions`, `destination_corrections`, `session_events`, and
+`handoff_events` tables. Failed/abandoned sessions remain useful for analysis.
+There is no separate ride-history table and no provider booking table.
 
 UUIDs are generated with Python `uuid4` on insert. All datetime columns are
 `TIMESTAMPTZ`; pass timezone-aware values, normally `datetime.now(UTC)`.
 PostgreSQL `now()` supplies creation/lifecycle defaults. The reusable timestamp
 mixin supplies `updated_at` on SQLAlchemy ORM/Core updates. Handwritten SQL writers
 must set `updated_at` explicitly. Database FK actions such as `SET NULL` do not
-represent a booking change and do not advance this timestamp. `now()` is transaction
+represent a session change and do not advance this timestamp. `now()` is transaction
 time, so writes in one transaction can have equal timestamps; order equal-time
 events deterministically with their IDs where needed (UUIDs are not sequence IDs).
 
-Coordinates are `NUMERIC(10,7)` with latitude/longitude bounds. Monetary values
-are `NUMERIC(14,4)` returned as `Decimal`, supporting INR and currencies requiring
-more than two fractional digits. Services own currency-specific rounding/display.
-Eight native PostgreSQL enum types constrain supported languages and lifecycle
-values. JSON payloads/scopes use JSONB with independent `{}`/`[]` defaults. Assign
-a new dict/list when changing mutable JSON fields so SQLAlchemy detects the change.
-Event payloads themselves must never be changed after insertion.
+Coordinates are `NUMERIC(10,7)` with latitude/longitude bounds, and coordinate
+pairs are both present or both absent. Confidence values are `NUMERIC(5,4)`
+bounded between 0 and 1. Destination candidate arrays are JSONB, must be arrays,
+and hold at most 5 entries. Nine native PostgreSQL enum types constrain
+supported languages and lifecycle values. JSON candidate payloads use JSONB with
+independent `{}`/`[]` defaults. Assign a new dict/list when changing mutable
+JSON fields so SQLAlchemy detects the change. Session event rows themselves
+must never be changed after insertion.
 
 Phone/email uniqueness is exact and case-sensitive as requested; future services
-must normalize contacts before persisting. Multiple NULL contacts/provider IDs
-are allowed. Services must validate ownership of a chosen saved place and that
-an event's optional request belongs to its session before persisting them.
+must normalize contacts before persisting. Multiple NULL contacts are allowed.
+Services must validate ownership of a chosen saved place before persisting a
+session snapshot that references it; cross-user snapshot assignment must be
+rejected in services (see `test_saved_place_ownership_cannot_cross_users`).
+Impossible cross-table CHECK constraints are intentionally not in the database;
+those rules live in services and tests.
 
 ### Deletion and audit behavior
 
 - Removing a saved place normally sets `is_active=false` and `deleted_at` to an
   aware timestamp. The label remains reserved under the required uniqueness rule;
   restore or rename the existing place rather than inserting a duplicate.
-- Hard deletion of a saved place uses `ON DELETE SET NULL` for the session's saved
-  place reference. All copied destination details, requests, and events survive.
-- User deletion is restricted if ride sessions exist. Prefer `status=deleted`.
-  Saved places and credentials cascade only when a user can actually be deleted.
-- Session/request/event history uses `RESTRICT`, with no ORM delete cascades.
-  Revoking credentials updates `revoked_at`; it has no effect on rides.
+- Hard deletion of a saved place uses `ON DELETE SET NULL` for the session's and
+  resolution's saved place references. All copied destination details,
+  resolutions, corrections, and events survive.
+- User deletion is restricted if ride sessions, resolutions, or corrections
+  exist. Prefer `status=deleted`. Saved places, preferences, and aliases cascade
+  only when a user can actually be deleted.
+- Session/resolution/correction/handoff history uses `RESTRICT`, with no ORM
+  delete cascades.
 - The migration installs a PostgreSQL trigger rejecting UPDATE, DELETE and
-  TRUNCATE on `ride_events`, including bulk SQL. Append a correcting event instead.
+  TRUNCATE on `session_events`, including bulk SQL. Append a correcting event instead.
   This is an application invariant, not protection from a database owner who can
   disable/drop triggers. Any future lawful retention/purge workflow needs an
   explicit reviewed migration or privileged maintenance process.
+- The one-active-Home rule is a partial unique index
+  (`uq_saved_places_active_home` on `user_id` where
+  `place_type = 'home' AND is_active`); an onboarding-complete user having a
+  meaningful name is the `ck_users_completed_name_present` CHECK constraint.
 
-### Credential boundary
+### Authentication boundary (future work)
 
-`access_token_ciphertext` and `refresh_token_ciphertext` accept ciphertext from a
-future dedicated encryption service. The database cannot verify that arbitrary
-text is encrypted. No fake encryption, key generation, or plaintext-token writer
-is implemented. That service must handle authenticated encryption, managed keys,
-rotation and decryption before OAuth persistence is used. Token fields are
-excluded from default ORM SELECTs via deferred loading; explicitly load them only
-inside the credential service. Do not log tokens, ciphertext, database URLs, model
-payloads or sensitive event data. SQLAlchemy hides bound parameters even with
-`DB_ECHO=true`; keep it off in production. Do not enable SQLAlchemy debug/result-row
-logging. Credentials belong in environment secrets, never version control.
+First-party Ride Saathi authentication is not implemented yet. No auth tables,
+JWT settings, or Uber OAuth/credential settings exist in this foundation; V1
+deep-link handoff must NOT depend on Uber OAuth. When authentication is added,
+it gets its own settings, tables, and migration — do not resurrect provider
+booking credentials (`UberCredential`), booking idempotency keys, driver states,
+or provider webhook tables as part of that work.
 
-Temporary OAuth state/PKCE verifiers, destination candidates, booking/voice
-context, STT and Maps results have no tables. Keep them in memory initially;
-future Redis keys such as `ride_session:{session_id}:destination_candidates` may
-use a 15–30 minute TTL. Confirmed destination details are copied into the session.
+Do not log tokens, JWTs, database URLs, model payloads, transcripts, map search
+queries, addresses, coordinates, or candidate payloads. SQLAlchemy hides bound
+parameters even with `DB_ECHO=true`; keep it off in production. Do not enable
+SQLAlchemy debug/result-row logging. Secrets belong in environment configuration,
+never version control.
+
+Destination candidates, voice context, STT results, and Maps results have no
+dedicated cache tables. Keep them in memory initially. Confirmed destination
+details are copied into the session snapshot.
 
 ## Migrations
 
 Alembic is the schema source of truth; neither startup nor tests call
-`Base.metadata.create_all()`. The initial revision `764469b4ab69`
-(`initial_ride_saathi_schema`) freezes its own enum definitions, creates six tables,
-constraints/indexes, and the audit trigger. Downgrade removes dependent objects
-before dropping enum types, without `CASCADE`.
+`Base.metadata.create_all()`. The initial revision `20260930_memory`
+(`initial memory destination platform`) freezes its own enum definitions,
+creates nine tables, constraints/indexes (including the partial unique active
+Home index and the onboarding-name CHECK), and the append-only trigger on
+`session_events`. Downgrade removes dependent objects before dropping enum
+types, without `CASCADE`.
 
 From `backend/` with `DATABASE_URL` configured:
 

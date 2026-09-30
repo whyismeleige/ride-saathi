@@ -6,8 +6,12 @@ small team develop independently without operating separate services. Service
 extraction is an option only when real scaling or ownership needs justify it.
 
 The backend combines modular Ola Maps place search with an async PostgreSQL
-persistence foundation. Onboarding, OAuth, ride booking, and destination-ranking
-workflows remain to be implemented.
+persistence foundation built around destination memory and deep-link handoff.
+The V1 product flow is voice/text destination input → destination resolution →
+confirmation → pickup/destination snapshot → preferred ride/product selection →
+deep-link handoff to the external Uber app. Ride Saathi does NOT claim a ride
+was booked after the handoff. Onboarding, saved-place CRUD, destination ranking,
+STT/TTS, and LLM parsing remain to be implemented (see backend-backlog.md).
 
 ## Current directory tree
 
@@ -152,10 +156,10 @@ The planned boundaries are:
 | Module | Owns |
 | --- | --- |
 | `users` | Profile, language, onboarding state, preferences, and User models. |
-| `auth` | Application authentication, Uber connection workflow, credential lifecycle and credential persistence. |
+| `auth` | First-party Ride Saathi authentication when implemented (future work; handoff never depends on Uber OAuth). |
 | `saved_places` | Home, named places, user aliases, and saved-place models/repositories. |
 | `destinations` | Input interpretation, saved-place lookup, candidate generation, confidence/ranking, resolution; current place-search code lives here. |
-| `rides` | RideSession, RideRequest, RideEvent, booking/cancellation lifecycle, history, and a future `state_machine.py`. |
+| `rides` | RideSession intent/session state, DestinationResolution/Correction destination memory, SessionEvent append-only analytics, HandoffEvent deep-link handoff — handoff-only, never provider booking. |
 
 The PostgreSQL foundation currently keeps its entities in `app/models` to
 preserve the shared schema and migration registry. Create additional feature
@@ -181,10 +185,11 @@ Follow this approach for `integrations/speech/stt`, `speech/tts`, and
 result types, implemented by vendor adapters and selected in dependencies. Wait
 for actual input/output requirements before creating those protocols.
 
-Future `integrations/uber/client.py`, `oauth.py`, `schemas.py`, and `exceptions.py`
-own Uber HTTP calls, OAuth wire details, payloads, and error translation. The
-auth module owns connection/credential workflows; rides owns booking decisions
-and state transitions. Do not make the Uber client call domain services.
+Uber is an external application we hand the user to through a deep link. No
+Uber booking client, OAuth flow, or webhook lifecycle exists in this codebase,
+and none should be added without an explicit product decision (see
+backend-backlog.md). Provider implementations must not leak into
+domain/application rules.
 
 ## Configuration, persistence, and future infrastructure
 
@@ -193,9 +198,13 @@ and state transitions. Do not make the Uber client call domain services.
 dotenv keys are ignored so Compose-only configuration can share the file.
 `ENVIRONMENT` accepts `development`, `testing`, and `production`; `LOG_LEVEL`
 controls app logging. Credentials are omitted from settings representations.
-Do not log settings dumps, request queries, credentials, or coordinates. HTTPX
-and HTTPCore request logs are suppressed below WARNING because upstream URLs
-contain credentials and user queries.
+Production fails fast when `OLA_MAPS_API_KEY` or `DATABASE_URL` is missing.
+Do not log settings dumps, request queries, addresses, coordinates, transcripts,
+candidate payloads, tokens, or credentials. HTTPX and HTTPCore request logs are
+suppressed below WARNING because upstream URLs contain credentials and user
+queries. Externally supplied `X-Request-Id` values are reused only when they
+match `^[A-Za-z0-9_-]{1,64}$`; otherwise a fresh id is generated. Unexpected
+exceptions are logged with the request id and path only.
 
 `DATABASE_URL` is optional for startup and place search; the engine initializes
 lazily on database use. Shared SQLAlchemy infrastructure lives in `db/base.py`
@@ -206,11 +215,24 @@ See [the database guide](../database.md) for pool settings and migration command
 Supabase is a hosted PostgreSQL endpoint configured through `DATABASE_URL`, not
 a required SDK or a separate persistence abstraction.
 
-Add `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET`, `UBER_REDIRECT_URI`,
-`GOOGLE_MAPS_API_KEY`, and `REDIS_URL` to typed settings and environment examples
-when those integrations are introduced. `SUPABASE_URL`/`SUPABASE_KEY` are only
-needed if a separate Supabase API is deliberately adopted; ordinary PostgreSQL
-does not require them. Unused secrets and switches are not configured today.
+`GET /health` is a cheap liveness probe. `GET /ready` reports configuration
+and database connectivity (`connected` / `not_configured`, `503` when a
+configured database is unreachable) and never calls paid external providers.
+
+The maps proxy reuses one process-wide HTTP connection pool (closed on FastAPI
+shutdown; tests inject or mock the provider). Timeouts stay short and strict;
+no aggressive retries. Abuse protection is a minimal single-instance in-memory
+rate window on `/v1/places/autocomplete`
+(`MAPS_RATE_LIMIT_PER_MINUTE`/`MAPS_RATE_LIMIT_WINDOW_SECONDS`), honoring
+`X-Forwarded-For` only when `TRUST_PROXY_HEADERS=true`. Document this limit in
+operations: horizontally scaled deployments must add reverse-proxy throttling.
+
+Add `GOOGLE_MAPS_API_KEY` to typed settings and environment examples only when
+that adapter is introduced. `SUPABASE_URL`/`SUPABASE_KEY` are only needed if a
+separate Supabase API is deliberately adopted; ordinary PostgreSQL does not
+require them. Do NOT add `REDIS_URL`, Kafka, Celery, service meshes, or
+microservices without a concrete scale trigger. Unused secrets and switches are
+not configured today.
 
 Add `shared/` only for concepts actually shared across modules, `scripts/` for
 real maintenance commands, and `workers/` when background tasks are required.
@@ -219,12 +241,16 @@ framework, microservices, or deployment orchestration is introduced here.
 
 ## Validation
 
-From `backend/`, run `uv sync --locked`, then `uv run --locked pytest -q`.
-The 36 original API contract cases are retained in `tests/api/test_places.py`.
-Additional tests cover settings, service policy, replaceable dependency wiring,
-app startup, route registration, and the adapter boundary. Shared fixtures block
-real HTTPX transports; use fake providers or `httpx.MockTransport`. No real map
-credentials, Uber account, or PostgreSQL server is required for normal tests.
-PostgreSQL integration tests run when `TEST_DATABASE_URL` selects a dedicated
-database ending in `_test`; otherwise they skip.
-No formatter or linter is configured in the existing project.
+From `backend/`, run `uv sync --locked`, then `uv run ruff check app tests alembic`,
+then `uv run --locked pytest -q`. The API contract cases are retained in
+`tests/api/test_places.py`. Additional tests cover settings, service policy,
+replaceable dependency wiring, app startup, route registration, the adapter
+boundary, and the V1 persistence invariants in `tests/test_database.py`.
+Shared fixtures block real HTTPX transports; use fake providers or
+`httpx.MockTransport`. No real map credentials or PostgreSQL server is required
+for normal tests. PostgreSQL integration tests run when `TEST_DATABASE_URL`
+selects a dedicated database ending in `_test`; otherwise they skip. CI always
+sets `TEST_DATABASE_URL`, runs `alembic upgrade head`, the full suite,
+`alembic check`, and a downgrade/upgrade round-trip (see
+`.github/workflows/backend-ci.yml`). No formatter is configured; Ruff
+(`E`, `F`, `I`, `UP`) is the linter.
