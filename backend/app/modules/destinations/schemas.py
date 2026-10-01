@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class Place(BaseModel):
-    address: str
+    address: str = Field(examples=["Apollo Hospitals, Jubilee Hills, Hyderabad"])
     latitude: float = Field(ge=-90.0, le=90.0)
     longitude: float = Field(ge=-180.0, le=180.0)
 

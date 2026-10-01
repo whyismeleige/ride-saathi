@@ -60,12 +60,15 @@ async def db(postgres_url):
 def reset_runtime_singletons():
     from app.integrations.maps import ola_maps
     from app.modules.destinations import router as destinations_router
+    from app.modules.speech import router as speech_router
 
     ola_maps.close_shared_client()
     destinations_router._reset_rate_limit()
+    speech_router._reset_rate_limit()
     yield
     ola_maps.close_shared_client()
     destinations_router._reset_rate_limit()
+    speech_router._reset_rate_limit()
 
 
 @pytest.fixture(autouse=True)

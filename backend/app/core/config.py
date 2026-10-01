@@ -66,6 +66,48 @@ class Settings(BaseSettings):
     maps_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
     trust_proxy_headers: bool = False
 
+    # Optional online speech; credentials stay on the backend.
+    azure_speech_key: str = Field(default="", repr=False)
+    azure_speech_region: str = Field(default="", pattern=r"^[a-z0-9]*$")
+    tts_voice_en: str = "en-IN-NeerjaNeural"
+    tts_voice_hi: str = "hi-IN-SwaraNeural"
+    tts_voice_te: str = "te-IN-ShrutiNeural"
+    tts_timeout_seconds: float = Field(default=8, gt=0, le=30)
+    tts_rate_limit_per_minute: int = Field(default=30, ge=1, le=600)
+    tts_global_rate_limit_per_minute: int = Field(default=120, ge=1, le=6000)
+    azure_speech_endpoint: str = ""
+    azure_openai_endpoint: str = ""
+    azure_openai_key: str = Field(default="", repr=False)
+    azure_openai_deployment: str = ""
+    stt_timeout_seconds: float = Field(default=10, gt=0, le=30)
+    llm_timeout_seconds: float = Field(default=8, gt=0, le=30)
+
+    @field_validator("azure_speech_endpoint", "azure_openai_endpoint")
+    @classmethod
+    def azure_resource_endpoint(cls, value: str, info: ValidationInfo) -> str:
+        from urllib.parse import urlsplit
+
+        if not value:
+            return value
+        parsed = urlsplit(value)
+        resource_domains = (
+            ".cognitive.microsoft.com",
+            ".cognitiveservices.azure.com",
+            ".openai.azure.com",
+            ".services.ai.azure.com",
+        )
+        allowed_paths = {"", "/"}
+        if info.field_name == "azure_openai_endpoint":
+            allowed_paths.update({"/openai/v1", "/openai/v1/"})
+        if (parsed.scheme != "https" or not parsed.hostname
+                # Include the host boundary so lookalike domains are rejected.
+                or not any(f"{domain}/" in f"{parsed.hostname}/" for domain in resource_domains)
+                or parsed.username or parsed.password or parsed.query or parsed.fragment
+                or parsed.path not in allowed_paths or parsed.port not in {None, 443}):
+            raise ValueError("Use an HTTPS Azure resource root endpoint")
+        # Provider clients append their API paths to this resource root.
+        return parsed._replace(path="").geturl()
+
     @field_validator("db_echo", "db_null_pool", "trust_proxy_headers", mode="before")
     @classmethod
     def strict_database_boolean(cls, value: object) -> object:

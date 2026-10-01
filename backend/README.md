@@ -17,6 +17,27 @@ Ride Saathi backend   (secret: OLA_MAPS_API_KEY)
 Ola Maps API
 ```
 
+## Swagger API documentation
+
+Start the backend using the local development instructions below, then open
+[Swagger UI](http://localhost:8000/docs). The live OpenAPI schema is available at
+[`/openapi.json`](http://localhost:8000/openapi.json) for importing into API clients.
+These paths are also available on your deployed backend host.
+
+Swagger groups endpoints into Health, Places, and Speech and documents request
+parameters, schemas, audio formats, and error responses. Use **Try it out** to
+send requests to the running server. No client API key is required; configure
+Ola/Azure credentials on the backend for provider calls. Interactive requests
+use provider quota and the same rate limits as the app.
+
+For `/v1/speech/turn`, select `language` and `context` and upload a raw WAV file
+(mono, 16 kHz, 16-bit PCM, 0.1–20 seconds). `/v1/speech/synthesize` accepts JSON
+and returns MP3 audio. Speech validation errors use the documented `error`
+envelope; malformed numeric place coordinates use FastAPI's 422 validation shape.
+
+The schema is generated from the routes and models, so there is no separate
+Swagger file to keep in sync. ReDoc is disabled.
+
 ## Endpoints
 
 | Method | Path                     | Purpose                                             |
@@ -24,6 +45,13 @@ Ola Maps API
 | GET    | `/health`                | Cheap liveness check (no DB or provider calls).     |
 | GET    | `/ready`                 | Readiness: config + DB connectivity, no provider calls. |
 | GET    | `/v1/places/autocomplete`| Place search proxied to Ola Maps.                   |
+| POST   | `/v1/speech/synthesize`  | Neural TTS audio through Azure Speech.              |
+| POST   | `/v1/speech/turn`        | WAV audio → Azure STT → structured LLM interpretation. |
+
+Online speech setup, voice selection, request limits, and fallback behavior are
+documented in [Online TTS](../docs/ONLINE_TTS.md). Set `AZURE_SPEECH_KEY` and
+`AZURE_SPEECH_REGION` on the backend to enable it. For STT, LLM deployment
+configuration and barge-in, see [Azure voice pipeline](../docs/AZURE_VOICE_PIPELINE.md).
 
 ### `GET /v1/places/autocomplete`
 

@@ -8,9 +8,14 @@ def test_existing_routes_and_lifespan(client):
         "/health",
         "/ready",
         "/v1/places/autocomplete",
+        "/v1/speech/synthesize",
+        "/v1/speech/turn",
     }
     assert client.get("/openapi.json").status_code == 200
-    assert client.get("/docs").status_code == 404
+    docs = client.get("/docs")
+    assert docs.status_code == 200
+    assert "SwaggerUIBundle" in docs.text
+    assert "/openapi.json" in docs.text
     assert client.get("/redoc").status_code == 404
     response = client.get("/health", headers={"X-Request-Id": "architecture-check"})
     assert response.json() == {"status": "ok"}

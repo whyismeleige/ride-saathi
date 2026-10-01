@@ -9,10 +9,10 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.dependencies.services import get_destination_service
 from app.integrations.maps.base import MapsError
-from app.modules.destinations.schemas import PlacesResponse
+from app.modules.destinations.schemas import ErrorResponse, PlacesResponse
 from app.modules.destinations.service import SUPPORTED_LANGUAGES, DestinationService
 
-router = APIRouter(prefix="/places")
+router = APIRouter(prefix="/places", tags=["Places"])
 
 MAX_QUERY_LENGTH = 200
 MIN_QUERY_LENGTH = 3
@@ -96,14 +96,32 @@ def _reset_rate_limit() -> None:
         _rate_buckets.clear()
 
 
-@router.get("/autocomplete", response_model=PlacesResponse)
+@router.get(
+    "/autocomplete",
+    summary="Search for destinations",
+    response_model=PlacesResponse,
+    responses={
+        status: {
+            "model": ErrorResponse,
+            "description": "; ".join(
+                f"{code}: {ERROR_MESSAGES[code]}"
+                for code, http_status in ERROR_HTTP_STATUS.items() if http_status == status
+            ),
+            "content": {"application/json": {"examples": {
+                code: {"value": {"error": {"code": code, "message": ERROR_MESSAGES[code]}}}
+                for code, http_status in ERROR_HTTP_STATUS.items() if http_status == status
+            }}},
+        }
+        for status in set(ERROR_HTTP_STATUS.values())
+    },
+)
 def autocomplete(
     request: Request,
     service: Annotated[DestinationService, Depends(get_destination_service)],
-    q: str = Query(default=""),
-    language: str = Query(default="en"),
-    lat: float | None = Query(default=None),
-    lng: float | None = Query(default=None),
+    q: str = Query(default="", description="Required search text, 3–200 characters after trimming. Missing or invalid text returns 400.", examples=["Apollo Hospitals"]),
+    language: str = Query(default="en", description="Language: en, hi, or te (case insensitive; whitespace trimmed)."),
+    lat: float | None = Query(default=None, description="Latitude bias, -90 to 90. Must be paired with lng.", examples=[17.414]),
+    lng: float | None = Query(default=None, description="Longitude bias, -180 to 180. Must be paired with lat.", examples=[78.412]),
 ):
     """Search places, proxying the privileged upstream provider.
 

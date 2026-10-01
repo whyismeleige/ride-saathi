@@ -1,24 +1,41 @@
 """Operational liveness/readiness endpoints, outside the versioned API prefix."""
 
 import asyncio
+from typing import Literal
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.core.config import settings
 from app.db.session import create_engine
 
-router = APIRouter()
+router = APIRouter(tags=["Health"])
 
 
-@router.get("/health")
+class HealthResponse(BaseModel):
+    status: Literal["ok"]
+
+
+class ReadyResponse(BaseModel):
+    status: Literal["ok"]
+    database: Literal["connected", "not_configured"]
+
+
+class NotReadyResponse(BaseModel):
+    status: Literal["not_ready"]
+    database: Literal["unreachable"]
+
+
+@router.get("/health", summary="Check liveness", response_model=HealthResponse)
 def health() -> dict[str, str]:
     """Cheap liveness probe; never touches the database or providers."""
     return {"status": "ok"}
 
 
-@router.get("/ready")
+@router.get("/ready", summary="Check readiness", response_model=ReadyResponse,
+            responses={503: {"model": NotReadyResponse, "description": "Configured database is unreachable."}})
 async def ready() -> JSONResponse:
     """Readiness probe: config + optional database connectivity.
 
