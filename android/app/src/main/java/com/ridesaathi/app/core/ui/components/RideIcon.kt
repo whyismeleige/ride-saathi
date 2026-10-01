@@ -43,9 +43,18 @@ fun RideIcon(
                 cap = StrokeCap.Round
             )
         when (kind) {
+            "car" -> {
+                drawRoundRect(color, Offset(2*s,10*s),Size(20*s,9*s), androidx.compose.ui.geometry.CornerRadius(3*s))
+                val roof = Path().apply { moveTo(5*s,10*s); lineTo(8*s,4*s); lineTo(17*s,4*s); lineTo(20*s,10*s); close() }
+                drawPath(roof,color,style=stroke)
+                drawCircle(color,2*s,Offset(6*s,21*s)); drawCircle(color,2*s,Offset(18*s,21*s))
+            }
+            "plus" -> { line(12f, 4f, 12f, 20f); line(4f, 12f, 20f, 12f) }
+            "close" -> { line(6f,6f,18f,18f); line(18f,6f,6f,18f) }
+
             "person" -> {
-                drawCircle(color, 4 * s, Offset(12 * s, 7 * s), style = stroke)
-                drawArc(color, 180f, 180f, false, Offset(4 * s, 14 * s), Size(16 * s, 14 * s), style = stroke)
+                drawCircle(color, 4 * s, Offset(12 * s, 7 * s))
+                drawArc(color, 180f, 180f, true, Offset(4 * s, 13 * s), Size(16 * s, 14 * s))
             }
 
             "language" -> {
@@ -60,7 +69,6 @@ fun RideIcon(
                     Offset(9 * s, 2 * s),
                     Size(6 * s, 13 * s),
                     androidx.compose.ui.geometry.CornerRadius(3 * s),
-                    style = stroke
                 )
                 drawArc(
                     color,
@@ -71,7 +79,7 @@ fun RideIcon(
                     Size(14 * s, 12 * s),
                     style = stroke
                 )
-                line(12f, 19f, 12f, 22f); line(8f, 22f, 16f, 22f)
+                line(12f, 19f, 12f, 22f)
             }
 
             "home" -> {
@@ -93,7 +101,10 @@ fun RideIcon(
             }
 
             "back" -> {
-                line(15f, 5f, 8f, 12f); line(8f, 12f, 15f, 19f)
+                line(11f, 5f, 4f, 12f); line(4f, 12f, 11f, 19f); line(4f, 12f, 21f, 12f)
+            }
+            "forward" -> {
+                line(13f, 5f, 20f, 12f); line(20f, 12f, 13f, 19f); line(3f, 12f, 20f, 12f)
             }
 
             "check" -> {
@@ -106,9 +117,13 @@ fun RideIcon(
             }
 
             else -> {
-                drawCircle(color, 7 * s, Offset(12 * s, 9 * s), style = stroke)
-                drawCircle(color, 2 * s, Offset(12 * s, 9 * s), style = stroke)
-                line(6f, 13f, 12f, 22f); line(12f, 22f, 18f, 13f)
+                val marker = Path().apply {
+                    moveTo(12*s, 23*s); cubicTo(9*s, 19*s, 3*s, 13*s, 3*s, 9*s)
+                    cubicTo(3*s, -2*s, 21*s, -2*s, 21*s, 9*s)
+                    cubicTo(21*s, 13*s, 15*s, 19*s, 12*s, 23*s); close()
+                }
+                drawPath(marker, color)
+                drawCircle(Color.White, 3*s, Offset(12*s, 9*s))
             }
         }
     }

@@ -22,15 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
-import com.ridesaathi.app.core.ui.components.RideIcon
-import com.ridesaathi.app.core.ui.components.StickyMicrophone
+import com.ridesaathi.app.core.ui.components.*
+import androidx.compose.ui.semantics.contentDescription
 import com.ridesaathi.app.feature.destination.DestinationSearchScreen
 import com.ridesaathi.app.feature.home.HomeRoute
 import com.ridesaathi.app.feature.onboarding.OnboardingStep
@@ -54,40 +53,18 @@ internal fun AppSession.AppNavigation() {
         navigateBack()
     }
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (screen != AppScreen.PlaceEditor) Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Box(Modifier.padding(10.dp)) { RideIcon("pin") }
-            }
-            val title = if (screen != AppScreen.PlaceEditor) "Ride Saathi" else word(
-                when {
-                    editor.state.pickingAddress -> "search"
-                    editor.state.editingId != null -> "editPlace"
-                    editor.state.pendingHome -> "addHome"
-                    else -> "addPlace"
+        RideScreenHeader(
+            onBack = if (canNavigateBackFromHeader() && !(screen == AppScreen.Onboarding && onboarding.step == OnboardingStep.Introduction && onboarding.introPage == 0)) ::navigateBack else null,
+            backLabel = word("back"),
+            // Brand belongs to the illustrated pages; search/confirmation use a quiet back header.
+            showBrand = screen !in listOf(AppScreen.Clarification, AppScreen.SharedChoices, AppScreen.DestinationSearch, AppScreen.RideConfirmation),
+            brandAtStart = screen == AppScreen.Home,
+            trailing = {
+                if (screen == AppScreen.Home) {
+                    FilledTonalIconButton(onClick = { openSettings() }, colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = com.ridesaathi.app.core.ui.theme.RideColors.Mint), modifier = Modifier.size(48.dp).semantics { contentDescription = word("settings") }) { Text(profile.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge) }
                 }
-            )
-            Text(
-                title,
-                modifier = Modifier.weight(1f)
-                    .padding(start = if (screen == AppScreen.PlaceEditor) 0.dp else 12.dp),
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (screen == AppScreen.Home) TextButton(onClick = {
-                shared.cancelSharedLocation(); voice.stopListening(); message = ""; screen =
-                AppScreen.Settings
-            }) {
-                Text(word("settings"))
             }
-            else if (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language) TextButton(onClick = { navigateBack() }) {
-                RideIcon("back", Modifier.size(18.dp)); Text(word("back"))
-            }
-        }
+        )
         AnimatedContent(
             targetState = screen,
             transitionSpec = {
@@ -122,6 +99,8 @@ internal fun AppSession.AppNavigation() {
                     PlaceEditorRoute(Modifier.fillMaxSize())
                 } else if (activeScreen == AppScreen.Settings) {
                     SettingsRoute(Modifier.fillMaxSize())
+                } else if (activeScreen == AppScreen.Home) {
+                    HomeRoute()
                 } else if (activeScreen == AppScreen.Onboarding) {
                     OnboardingRoute(Modifier.fillMaxSize())
                 } else Column(
@@ -204,4 +183,21 @@ internal fun AppSession.AppNavigation() {
             else -> Unit
         }
     }
+}
+
+/**
+ * The header mirrors the Android Back contract exactly: no control on Home, and none on the
+ * first onboarding stage, where Back must not unwind past the start of setup.
+ */
+private fun AppSession.canNavigateBackFromHeader(): Boolean =
+    screen != AppScreen.Home &&
+        (screen != AppScreen.Onboarding || onboarding.step != OnboardingStep.Language)
+
+/** Opens Settings, clearing any speech, prompt or shared-location work in progress. */
+internal fun AppSession.openSettings() {
+    shared.cancelSharedLocation()
+    voice.stopListening()
+    stopPrompt()
+    message = ""
+    screen = AppScreen.Settings
 }

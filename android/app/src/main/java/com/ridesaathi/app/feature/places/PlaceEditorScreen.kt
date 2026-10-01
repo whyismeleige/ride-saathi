@@ -3,18 +3,16 @@ package com.ridesaathi.app.feature.places
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
-import com.ridesaathi.app.core.ui.components.LargeButton
-import com.ridesaathi.app.core.ui.components.MapPreview
-import com.ridesaathi.app.core.ui.components.SectionCard
+import com.ridesaathi.app.core.ui.components.*
 import com.ridesaathi.app.data.places.OpenStreetMapPreviewProvider
 
 @Composable
@@ -27,26 +25,23 @@ internal fun PlaceEditorScreen(
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
-    Column(modifier.fillMaxWidth()) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Column(Modifier.widthIn(max = 600.dp).fillMaxSize()) {
         if (state.pickingAddress) {
-            AddressPicker(state, word, onAction, Modifier.weight(1f))
+            AddressPicker(state, word, onAction, Modifier.weight(1f), startEditing = true)
         } else {
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 if (state.pendingHome) {
-                    Text(word("home"), style = MaterialTheme.typography.titleLarge)
+                    RideSectionTitle(word("onboardingHomeTitle"))
                 } else {
-                    OutlinedTextField(
+                    RideSearchField(
                         value = state.draftName,
                         onValueChange = { onAction(PlaceEditorAction.Rename(it)) },
-                        label = { Text(word("placeName")) },
-                        supportingText = { Text(word("placeNameHint")) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        label = word("placeName"), icon = "pin", imeAction = ImeAction.Done,
                         keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                     )
                 }
@@ -56,36 +51,26 @@ internal fun PlaceEditorScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(state.draftAddress, style = MaterialTheme.typography.bodyLarge)
-                    OutlinedButton(onClick = {
+                    RideSecondaryButton(word("changeAddress"), onClick = {
                         focusManager.clearFocus()
                         onAction(PlaceEditorAction.ChangeAddress)
-                    }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                        Text(word("changeAddress"))
-                    }
+                    }, icon = "search")
                 }
                 mapUrl?.let { MapPreview(it, language) }
                 if (state.editingId != null && !state.pendingHome) {
-                    TextButton(
+                    RideSecondaryButton(
+                        label = word("delete"),
                         onClick = { onAction(PlaceEditorAction.AskDelete) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text(word("delete"))
-                    }
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 }
             }
-            Surface(shadowElevation = 4.dp) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
-                    LargeButton(
-                        word("save"),
-                        enabled = state.draftPosition != null && state.draftName.isNotBlank()
-                    ) {
-                        focusManager.clearFocus()
-                        onAction(PlaceEditorAction.Save)
-                    }
-                }
-            }
+            RideActionFooter(word("save"), enabled = state.draftPosition != null && state.draftName.isNotBlank(), onClick = {
+                focusManager.clearFocus()
+                onAction(PlaceEditorAction.Save)
+            })
         }
+    }
     }
     if (state.showDeleteConfirmation) AlertDialog(
         onDismissRequest = { onAction(PlaceEditorAction.DismissDelete) },

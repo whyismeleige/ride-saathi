@@ -3,17 +3,16 @@ package com.ridesaathi.app.feature.tutorial
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
+import com.ridesaathi.app.core.ui.components.IntroIllustration
+import com.ridesaathi.app.core.ui.components.RideSecondaryButton
 import com.ridesaathi.app.core.ui.components.LargeButton
-import com.ridesaathi.app.core.ui.components.RideIcon
 import com.ridesaathi.app.core.ui.components.SectionCard
 
 @Composable
@@ -49,11 +48,7 @@ internal fun TutorialScreen(
             style = MaterialTheme.typography.headlineMedium
         )
         SectionCard {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
-                    Box(Modifier.padding(28.dp)) { RideIcon(slide.icon, Modifier.size(if (slide.icon == "uber") 72.dp else 56.dp)) }
-                }
-            }
+            IntroIllustration()
             Text(
                 word(slide.titleKey),
                 style = MaterialTheme.typography.headlineMedium,
@@ -68,22 +63,21 @@ internal fun TutorialScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-        OutlinedButton(
+        RideSecondaryButton(
+            label = word("replayAudio"),
             onClick = { onSpeak("${word(slide.titleKey)}. ${word(slide.bodyKey)}") },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-        ) {
-            RideIcon("mic", Modifier.size(18.dp))
-            Text(word("replayAudio"))
-        }
+            icon = "mic"
+        )
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             if (state.tutorialStep > 0) {
-                OutlinedButton(
+                RideSecondaryButton(
+                    label = word("back"),
                     onClick = onPrevious,
-                    modifier = Modifier.weight(1f).heightIn(min = 56.dp)
-                ) { Text(word("back")) }
+                    modifier = Modifier.weight(1f)
+                )
             }
             LargeButton(
                 label = word(

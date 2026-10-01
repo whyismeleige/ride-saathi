@@ -1,140 +1,84 @@
 package com.ridesaathi.app.feature.home
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
-import com.ridesaathi.app.core.ui.components.PlaceRow
-import com.ridesaathi.app.core.ui.components.RideIcon
-import com.ridesaathi.app.core.ui.components.SpeechTranscript
+import com.ridesaathi.app.core.ui.components.*
+import com.ridesaathi.app.core.ui.theme.*
 import com.ridesaathi.app.domain.model.Profile
 import com.ridesaathi.app.domain.model.SavedPlace
+import com.ridesaathi.app.navigation.openSettings
 
 @Composable
 internal fun HomeScreen(
-    profile: Profile,
-    places: List<SavedPlace>,
-    voice: VoiceUiState,
-    word: (String) -> String,
-    onSelect: (SavedPlace) -> Unit,
-    onMicrophone: () -> Unit
+    profile: Profile, places: List<SavedPlace>, voice: VoiceUiState,
+    word: (String) -> String, onSelect: (SavedPlace) -> Unit,
+    onMicrophone: () -> Unit, onSearch: () -> Unit = {}, onPlaces: () -> Unit = {},
+    greetingKey: String = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) { in 5..11 -> "goodMorning"; in 12..16 -> "goodAfternoon"; else -> "goodEvening" }
 ) {
-    var entered by remember { mutableStateOf(false) }
-    val contentAlpha by animateFloatAsState(
-        if (entered) 1f else 0f,
-        tween(450),
-        label = "homeContentAlpha"
-    )
-    val heroScale by animateFloatAsState(
-        if (entered) 1f else 0.96f,
-        tween(450),
-        label = "homeHeroScale"
-    )
-    LaunchedEffect(Unit) { entered = true }
-    Text(
-        "${word("hello")}, ${profile.name}", style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.alpha(contentAlpha)
-    )
-    Text(
-        word("rideTo"),
-        style = MaterialTheme.typography.headlineLarge,
-        modifier = Modifier.alpha(contentAlpha)
-    )
-    Surface(
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        modifier = Modifier.fillMaxWidth().scale(heroScale).alpha(contentAlpha)
-    ) {
+    val sortedPlaces = remember(places) { places.sortedByDescending { it.isHome } }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
-            Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            Modifier.widthIn(max = 600.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            HomeMicrophone(voice.listening, word, onMicrophone)
-            Text(
-                if (voice.listening) word("listening") else word("voiceHint"),
-                style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center
-            )
-            SpeechTranscript(voice.speechTranscript, voice.transcriptIsFinal, word)
-        }
-    }
-    Column(
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.alpha(contentAlpha)
-    ) {
-        Text(word("places"), style = MaterialTheme.typography.titleLarge)
-        Text(word("tapHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-    places.sortedByDescending { it.isHome }.forEachIndexed { index, place ->
-        val rowAlpha by animateFloatAsState(
-            targetValue = if (entered) 1f else 0f,
-            animationSpec = tween(durationMillis = 350, delayMillis = 80 * index),
-            label = "placeRowAlpha"
-        )
-        PlaceRow(place, word, Modifier.alpha(rowAlpha)) { onSelect(place) }
-    }
-    Text(
-        word("handoffHint"), style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.alpha(contentAlpha)
-    )
-}
-
-@Composable
-private fun HomeMicrophone(listening: Boolean, word: (String) -> String, onToggle: () -> Unit) {
-    val label = if (listening) word("stop") else word("speak")
-    val transition = rememberInfiniteTransition(label = "homeMicPulse")
-    val pulse by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (listening) 1.32f else 1.08f,
-        animationSpec = infiniteRepeatable(tween(if (listening) 950 else 1800), RepeatMode.Restart),
-        label = "homeMicPulseScale"
-    )
-    val pulseAlpha by transition.animateFloat(
-        initialValue = if (listening) 0.28f else 0.12f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(if (listening) 950 else 1800), RepeatMode.Restart),
-        label = "homeMicPulseAlpha"
-    )
-    val micScale by animateFloatAsState(
-        targetValue = if (listening) 1.08f else 1f,
-        animationSpec = tween(220),
-        label = "homeMicScale"
-    )
-    Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = pulseAlpha),
-            modifier = Modifier.size(118.dp).scale(pulse)
-        ) {}
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (listening) 0.72f else 0.42f),
-            modifier = Modifier.size(126.dp)
-        ) {}
-        Surface(
-            onClick = onToggle,
-            shape = CircleShape,
-            shadowElevation = 10.dp,
-            color = if (listening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(96.dp).scale(micScale).semantics { contentDescription = label }
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                RideIcon("mic", Modifier.size(42.dp), color = MaterialTheme.colorScheme.onPrimary)
+            Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("${word(greetingKey)}, ${profile.name}!", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 28.sp, lineHeight = 34.sp), modifier = Modifier.semantics { heading() })
+                Text(word("rideTo"), style = MaterialTheme.typography.bodyLarge, color = RideColors.Slate)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().height(184.dp).clipToBounds(), contentAlignment = Alignment.Center) {
+                    BookingIllustration(Modifier.fillMaxSize())
+                    Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(24.dp).background(Brush.verticalGradient(listOf(RideColors.Cream, Color.Transparent))))
+                    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(24.dp).background(Brush.verticalGradient(listOf(Color.Transparent, RideColors.Cream))))
+                    RideVoiceButton(voice.listening, word, onMicrophone)
+                }
+                Text(word(if (voice.listening) "listening" else "tapSpeak"), style = MaterialTheme.typography.titleLarge, color = RideColors.Navy)
+                Text(word("voiceHint"), Modifier.padding(horizontal = 32.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp), color = RideColors.Slate, textAlign = TextAlign.Center)
+                SpeechTranscript(voice.speechTranscript, voice.transcriptIsFinal, word)
+            }
+            Box(Modifier.padding(horizontal = 24.dp)) {
+                RidePlaceCard(word("manualDestination"), "pin", onSearch)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(word("quickPlaces"), Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+                    TextButton(onClick = onPlaces) { Text(word("seeAll")); RideIcon("arrow", Modifier.size(16.dp), RideColors.Slate) }
+                }
+                if (places.isEmpty()) Box(Modifier.padding(horizontal = 24.dp)) { RideEmptyState(word("choosePlace")) }
+                else androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(sortedPlaces.size, key = { sortedPlaces[it].id }) { index ->
+                        val place = sortedPlaces[index]
+                        Surface(onClick = { onSelect(place) }, shape = RideShapes.medium,
+                            color = if (place.isHome) RideColors.Mint.copy(alpha = .25f) else MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, if (place.isHome) RideColors.SelectedBorder else RideColors.Border), modifier = Modifier.width(164.dp)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                RideIconBadge(placeIcon(place), place.isHome, 44.dp)
+                                Text(if (place.isHome) word("home") else place.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(place.address.substringBefore(','), style = MaterialTheme.typography.bodyMedium, color = RideColors.Slate, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -142,5 +86,14 @@ private fun HomeMicrophone(listening: Boolean, word: (String) -> String, onToggl
 
 @Composable
 internal fun AppSession.HomeRoute() {
-    HomeScreen(profile, places, voice.state, ::word, { ride.choose(it) }, voice::toggleListening)
+    HomeScreen(
+        profile,
+        places,
+        voice.state,
+        ::word,
+        { ride.choose(it) },
+        voice::toggleListening,
+        { destination.beginDestinationSearch("", extractPhrase = false) },
+        ::openSettings
+    )
 }

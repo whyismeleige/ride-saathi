@@ -1,5 +1,8 @@
 package com.ridesaathi.app.core.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
@@ -38,6 +42,11 @@ private enum class MapStatus { Loading, Ready, Error }
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun MapPreview(mapUrl: String, language: String) {
+    // Android Studio cannot host the map WebView; only previews substitute decorative artwork.
+    if (LocalInspectionMode.current) {
+        Box(Modifier.fillMaxWidth().height(220.dp).background(com.ridesaathi.app.core.ui.theme.RideColors.Sky), contentAlignment = androidx.compose.ui.Alignment.Center) { RideIcon("pin") }
+        return
+    }
     var attempt by remember(mapUrl) { mutableIntStateOf(0) }
     key(mapUrl, attempt) {
         var status by remember { mutableStateOf(MapStatus.Loading) }

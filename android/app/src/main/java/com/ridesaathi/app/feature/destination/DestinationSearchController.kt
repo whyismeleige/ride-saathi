@@ -22,6 +22,9 @@ internal class DestinationSearchController(private val app: AppSession) {
 
     fun onAction(action: DestinationSearchAction) {
         when (action) {
+            DestinationSearchAction.More -> moreSearchChoices()
+            DestinationSearchAction.Previous -> previousSearchChoices()
+            DestinationSearchAction.Again -> editDestinationQuery()
             is DestinationSearchAction.EditQuery -> {
                 app.voice.stopListening()
                 app.stopPrompt()

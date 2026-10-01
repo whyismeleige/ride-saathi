@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -44,10 +45,10 @@ internal fun StickyMicrophone(
                 shape = CircleShape, contentPadding = PaddingValues(0.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor =
-                        if (listening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.primary
                 ),
                 modifier = Modifier.size(72.dp).scale(micScale)
-                    .semantics { contentDescription = label }) {
+                    .semantics { contentDescription = label; stateDescription = word(if (listening) "listening" else "tapSpeak") }) {
                 RideIcon("mic", Modifier.size(32.dp), color = LocalContentColor.current)
             }
             AnimatedVisibility(listening, enter = fadeIn(tween(180)), exit = fadeOut(tween(160))) {
