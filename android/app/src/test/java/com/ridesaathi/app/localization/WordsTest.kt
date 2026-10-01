@@ -6,7 +6,7 @@ import org.junit.Test
 class WordsTest {
     @Test
     fun everyExistingKeyRemainsAvailableInAllThreeLanguages() {
-        assertEquals(152, en.size)
+        assertEquals(155, en.size)
         assertEquals(en.keys, hi.keys)
         assertEquals(en.keys, te.keys)
         for ((language, dictionary) in listOf("en" to en, "hi" to hi, "te" to te)) {

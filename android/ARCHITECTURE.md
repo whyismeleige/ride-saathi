@@ -27,10 +27,11 @@ Under `app/src/main/java/com/ridesaathi/app/`:
 | `domain/sharedlocation` | Pure supported-link/coordinate/address parsing |
 | `data/local` | Existing SharedPreferences/JSON storage |
 | `data/places` | Backend HTTP implementation and map-preview URL provider |
+| `data/speech` | Bounded, cancellable backend POST returning in-memory speech audio |
 | `data/sharedlocation` | Bounded, host-restricted Google Maps redirect resolution |
 | `core/location` | Android location requests: recent search position versus fresh pickup position |
 | `core/permissions` | Activity Result permission requests, cancellation and system settings intents |
-| `core/speech` | SpeechRecognizer sessions/timeouts and TTS utterance completion/lifecycle |
+| `core/speech` | AudioRecord capture, WebRTC VAD/AEC barge-in, online audio playback with device TTS fallback, and utterance completion/lifecycle |
 | `core/deeplink` | Uber URI construction, installed check, launching and Play Store/web fallback |
 | `core/ui` | Stateless shared components, WebView map lifecycle and theme |
 | `localization` | English/Hindi/Telugu dictionaries, fallback, speech locales and search error messages |
@@ -81,7 +82,7 @@ Its Back action moves through stages and tutorial pages without completing setup
 - All existing localization keys are retained, with setup copy added in each language. Runtime language selection and
   English/unknown-key fallback are unchanged.
 
-Keep the distinct timing/quality contracts: address debounce 500 ms; recognition
+Keep the distinct timing/quality contracts: address debounce 500 ms; voice utterances
 20 s; search location up to 120 s old, 5 km accuracy, 8 s timeout; pickup fresh,
 250 m accuracy, 15 s request. Interrupting HTTP alone is insufficient: generation
 checks protect against providers that ignore interruption. TTS completion checks
@@ -109,3 +110,7 @@ interfaces. Those references are the main boundary to replace with narrow
 callbacks/interfaces before splitting Gradle modules. SharedPreferences and
 bounded worker threads remain: this refactor preserves their existing format,
 debounce and cancellation behavior. No new runtime dependencies were needed.
+
+Azure voice turns and interruption rules are documented in [Azure voice pipeline](../docs/AZURE_VOICE_PIPELINE.md). Microphone capture uses one worker and bounded memory;
+turn and playback cancellation invalidate late results independently. The pinned
+WebRTC VAD dependency is resolved from a group-restricted JitPack repository.

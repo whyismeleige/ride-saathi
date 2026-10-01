@@ -170,14 +170,18 @@ internal fun AppSession.AppNavigation() {
                 destination.destinationSearch?.loading == false,
                 voice.state.listening,
                 ::word,
-                voice::toggleListening
+                voice::toggleListening,
+                voice.state.speaking,
+                voice.state.bargeInAvailable
             )
 
             AppScreen.RideConfirmation -> StickyMicrophone(
                 !ride.state.handoffInProgress,
                 voice.state.listening,
                 ::word,
-                voice::toggleListening
+                voice::toggleListening,
+                voice.state.speaking,
+                voice.state.bargeInAvailable
             )
 
             else -> Unit

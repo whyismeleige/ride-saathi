@@ -1,6 +1,10 @@
 package com.ridesaathi.app.localization
 
 internal val hi = mapOf(
+    "interruptSpeak" to "बीच में रोककर बोलें",
+    "bargeInHint" to "आप बोलकर बीच में रोक सकते हैं",
+    "tapInterruptHint" to "बीच में रोकने के लिए माइक्रोफ़ोन दबाएँ",
+
     "goodMorning" to "सुप्रभात",
     "goodAfternoon" to "नमस्कार",
     "goodEvening" to "शुभ संध्या",

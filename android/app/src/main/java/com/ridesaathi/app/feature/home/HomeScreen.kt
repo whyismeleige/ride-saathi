@@ -47,9 +47,9 @@ internal fun HomeScreen(
                     BookingIllustration(Modifier.fillMaxSize())
                     Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(24.dp).background(Brush.verticalGradient(listOf(RideColors.Cream, Color.Transparent))))
                     Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(24.dp).background(Brush.verticalGradient(listOf(Color.Transparent, RideColors.Cream))))
-                    RideVoiceButton(voice.listening, word, onMicrophone)
+                    RideVoiceButton(voice.listening, word, onMicrophone, voice.speaking)
                 }
-                Text(word(if (voice.listening) "listening" else "tapSpeak"), style = MaterialTheme.typography.titleLarge, color = RideColors.Navy)
+                Text(word(if (voice.speaking) { if (voice.listening && voice.bargeInAvailable) "bargeInHint" else "tapInterruptHint" } else if (voice.listening) "listening" else "tapSpeak"), style = MaterialTheme.typography.titleLarge, color = RideColors.Navy)
                 Text(word("voiceHint"), Modifier.padding(horizontal = 32.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, lineHeight = 22.sp), color = RideColors.Slate, textAlign = TextAlign.Center)
                 SpeechTranscript(voice.speechTranscript, voice.transcriptIsFinal, word)
             }

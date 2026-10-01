@@ -54,7 +54,7 @@ internal fun RideVoicePulse(listening: Boolean, modifier: Modifier = Modifier) {
  * versus "Stop listening, Listening…" rather than an unlabelled circle.
  */
 @Composable
-internal fun RideVoiceButton(listening: Boolean, word: (String) -> String, onToggle: () -> Unit) {
+internal fun RideVoiceButton(listening: Boolean, word: (String) -> String, onToggle: () -> Unit, speaking: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -77,7 +77,7 @@ internal fun RideVoiceButton(listening: Boolean, word: (String) -> String, onTog
                 .scale(pressScale)
                 .semantics {
                     role = Role.Button
-                    contentDescription = word(if (listening) "stop" else "tapSpeak")
+                    contentDescription = word(if (speaking) "interruptSpeak" else if (listening) "stop" else "tapSpeak")
                     stateDescription = word(if (listening) "listening" else "tapSpeak")
                 }
         ) {

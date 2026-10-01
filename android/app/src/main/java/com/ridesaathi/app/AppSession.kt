@@ -37,7 +37,9 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
     val permissions = AppPermissions(activity)
     val dependencies = AppDependencies(permissions)
     val speechOutput =
-        TextToSpeechController(activity, { locale() }, { foreground && !isDestroyed })
+        TextToSpeechController(
+            activity, { locale() }, { foreground && !isDestroyed }, BuildConfig.API_BASE_URL
+        )
     val uber = UberDeepLinkLauncher(activity)
     val onboarding = OnboardingController(this)
     val editor = PlaceEditorController(this)
@@ -48,6 +50,8 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
     val voice = VoiceController(this)
 
     init {
+        speechOutput.onSpeakingChanged = { voice.state.speaking = it }
+        speechOutput.onInterrupted = { voice.endSession() }
         activity.lifecycle.addObserver(this)
     }
 
@@ -58,7 +62,10 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
 
     fun word(key: String) = Words.get(profile.language, key)
     fun locale() = languageLocale(profile.language)
-    fun speak(value: String, after: (() -> Unit)? = null) = speechOutput.speak(value, after)
+    fun speak(value: String, after: (() -> Unit)? = null) {
+        voice.prepareForPrompt()
+        speechOutput.speak(value, after)
+    }
     fun stopPrompt() = speechOutput.stop()
     fun runOnUiThread(action: () -> Unit) = activity.runOnUiThread(action)
     fun hasSearchLocationPermission() = permissions.hasLocation()
@@ -71,6 +78,7 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
 
     override fun onResume(owner: LifecycleOwner) {
         foreground = true
+        voice.onResume()
     }
 
     override fun onPause(owner: LifecycleOwner) {
@@ -80,7 +88,7 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
             destination.destinationSearch =
                 destination.destinationSearch?.copy(error = "searchInterrupted", retryable = true)
         }
-        voice.stopListening()
+        voice.endSession()
         speechOutput.stop()
     }
 
@@ -100,7 +108,7 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
         shared.cancelSharedLocation()
         editor.cancelAddressSearch()
         ride.cancelLocation()
-        voice.stopListening()
+        voice.close()
         speechOutput.close()
         permissions.close()
         activity.lifecycle.removeObserver(this)
@@ -129,6 +137,7 @@ internal class AppSession(val activity: ComponentActivity) : DefaultLifecycleObs
     }
 
     fun selectLanguage(code: String) {
+        voice.endSession()
         profile = profile.copy(language = code)
         store.saveProfile(profile)
         speechOutput.updateLanguage()

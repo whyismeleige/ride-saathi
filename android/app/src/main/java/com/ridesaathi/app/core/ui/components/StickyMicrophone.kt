@@ -25,9 +25,11 @@ internal fun StickyMicrophone(
     enabled: Boolean,
     listening: Boolean,
     word: (String) -> String,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    speaking: Boolean = false,
+    bargeInAvailable: Boolean = false
 ) {
-    val label = if (listening) word("stop") else word("speak")
+    val label = word(if (speaking) "interruptSpeak" else if (listening) "stop" else "speak")
     val micScale by animateFloatAsState(
         targetValue = if (listening) 1.08f else 1f,
         animationSpec = spring(dampingRatio = 0.68f, stiffness = 360f),
@@ -53,7 +55,7 @@ internal fun StickyMicrophone(
             }
             AnimatedVisibility(listening, enter = fadeIn(tween(180)), exit = fadeOut(tween(160))) {
                 Text(
-                    word("listening"), style = MaterialTheme.typography.bodyMedium,
+                    word(if (speaking) { if (bargeInAvailable) "bargeInHint" else "tapInterruptHint" } else "listening"), style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             }
         }

@@ -44,5 +44,14 @@ family licenses.
 ## Service Providers
 
 Ride Saathi integrates with third-party services and apps, including Uber and
-Ola Maps. Their trademarks, APIs, SDKs, map data, and service terms remain owned
+Ola Maps, Azure Speech and Azure OpenAI. Their trademarks, APIs, SDKs, map data, and service terms remain owned
 and controlled by their respective providers.
+
+## Android VAD
+
+The Android app uses `com.github.gkonovalov.android-vad:webrtc:2.0.10`,
+Georgiy Konovalov's MIT-licensed Android wrapper around WebRTC VAD.
+Source: https://github.com/gkonovalov/android-vad . The wrapper license is bundled
+in `android/app/src/main/assets/licenses/android-vad-LICENSE.txt`. Native WebRTC
+code retains its upstream BSD license, bundled in
+`android/app/src/main/assets/licenses/webrtc-LICENSE.txt`.

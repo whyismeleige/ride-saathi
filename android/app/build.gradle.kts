@@ -108,6 +108,7 @@ create("qa") {
 }
 
 dependencies {
+  implementation("com.github.gkonovalov.android-vad:webrtc:2.0.10")
   screenshotTestImplementation("com.android.tools.screenshot:screenshot-validation-api:0.0.1-alpha13")
   screenshotTestImplementation("androidx.compose.ui:ui-tooling")
   implementation(platform("androidx.compose:compose-bom:2025.05.00"))

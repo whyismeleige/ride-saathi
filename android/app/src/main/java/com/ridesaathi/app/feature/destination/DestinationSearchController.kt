@@ -178,7 +178,7 @@ internal class DestinationSearchController(private val app: AppSession) {
         )
     }
 
-    fun handleSearchSpeech(raw: String): Unit = with(app) {
+    fun handleSearchSpeech(raw: String, interpretedQuery: String? = null): Unit = with(app) {
         val state = destinationSearch ?: return
         val choice =
             DestinationChoices.parse(raw, if (state.editing) emptyList() else state.visible)
@@ -193,7 +193,7 @@ internal class DestinationSearchController(private val app: AppSession) {
             if (VoiceCommands.decision(raw) == VoiceDecision.No) {
                 message = word("searchClearer"); return
             }
-            voice.resolveDestination(raw)
+            voice.resolveDestination(raw, interpretedQuery = interpretedQuery)
             return
         }
         when (choice) {

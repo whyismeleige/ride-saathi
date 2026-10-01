@@ -1,6 +1,10 @@
 package com.ridesaathi.app.localization
 
 internal val te = mapOf(
+    "interruptSpeak" to "మధ్యలో ఆపి మాట్లాడండి",
+    "bargeInHint" to "మధ్యలో ఆపడానికి మాట్లాడండి",
+    "tapInterruptHint" to "మధ్యలో ఆపడానికి మైక్రోఫోన్ నొక్కండి",
+
     "goodMorning" to "శుభోదయం",
     "goodAfternoon" to "శుభ మధ్యాహ్నం",
     "goodEvening" to "శుభ సాయంత్రం",

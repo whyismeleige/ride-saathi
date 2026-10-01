@@ -50,3 +50,14 @@ Minimum SDK is 26, target SDK is 35 and compile SDK is 36. Application ID,
 SharedPreferences file/keys/JSON and language behavior are unchanged by the
 package refactor. The architectural refactor itself adds no runtime or build
 dependencies.
+
+## Online speech
+
+Spoken prompts prefer Azure neural speech via the backend at `API_BASE_URL`, with
+device TTS as a fallback. English, Hindi and Telugu voices are chosen by the
+server. No speech-provider key belongs in the APK. See [Online TTS](../docs/ONLINE_TTS.md)
+for backend configuration, privacy, cancellation behavior and device checks.
+
+Microphone input now uses the [Azure STT/LLM pipeline](../docs/AZURE_VOICE_PIPELINE.md).
+An active voice session supports local barge-in with WebRTC VAD and hardware AEC,
+with a tap-to-interrupt fallback when echo cancellation is unavailable.
