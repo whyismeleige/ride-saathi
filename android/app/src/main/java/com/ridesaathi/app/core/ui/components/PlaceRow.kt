@@ -17,10 +17,18 @@ internal fun PlaceRow(
 ) {
     RidePlaceCard(
         title = if (place.isHome) word("home") else place.name,
-        badgeIcon = if (place.isHome) "home" else "pin",
+        badgeIcon = placeIcon(place),
         homeBadge = place.isHome,
         supporting = { ExpandableAddress(place, word) },
         onClick = onClick,
         modifier = modifier
     )
+}
+
+internal fun placeIcon(place: SavedPlace): String = when {
+    place.isHome -> "home"
+    place.name.contains("work", true) -> "work"
+    place.name.contains("hospital", true) -> "hospital"
+    place.name.contains("temple", true) -> "temple"
+    else -> "pin"
 }

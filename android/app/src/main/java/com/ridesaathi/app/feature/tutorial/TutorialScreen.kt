@@ -10,7 +10,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.AppSession
-import com.ridesaathi.app.core.ui.components.RideScenicHeader
+import com.ridesaathi.app.core.ui.components.IntroIllustration
 import com.ridesaathi.app.core.ui.components.RideSecondaryButton
 import com.ridesaathi.app.core.ui.components.LargeButton
 import com.ridesaathi.app.core.ui.components.SectionCard
@@ -48,7 +48,7 @@ internal fun TutorialScreen(
             style = MaterialTheme.typography.headlineMedium
         )
         SectionCard {
-            RideScenicHeader()
+            IntroIllustration()
             Text(
                 word(slide.titleKey),
                 style = MaterialTheme.typography.headlineMedium,

@@ -2,20 +2,19 @@ package com.ridesaathi.app.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-/** Single palette for UI and replaceable scenic artwork. */
+/** Colours sampled from the reference pages; artwork retains its original palette. */
 object RideColors {
-    val Navy = Color(0xFF09285D)
-    val Emerald = Color(0xFF078365)
+    val Navy = Color(0xFF061A40)
+    val Emerald = Color(0xFF087F68)
     val Mint = Color(0xFFDDF6E9)
-    val Cream = Color(0xFFFFFAF1)
+    val Cream = Color(0xFFFFFCF4)
     val Sky = Color(0xFFE6F4FF)
-    val Orange = Color(0xFFC65B15)
+    val Orange = Color(0xFFFF8829)
     val Peach = Color(0xFFFFEBD9)
-    val Lavender = Color(0xFFEEE8FC)
-    val Slate = Color(0xFF526580)
-    val Border = Color(0xFFDCE8E2)
+    val Slate = Color(0xFF687C9B)
+    val Border = Color(0xFFF0ECE4)
     val Red = Color(0xFFAC383E)
-    val Leaf = Color(0xFF7BB887)
-    val Trunk = Color(0xFFAD7954)
-    val Road = Color(0xFFD2DCE2)
+    val SelectedBorder = Color(0xFF7CD1BC)
+    val GreenLight = Color(0xFF278D75)
+    val ButtonBottom = Color(0xFF0E6B56)
 }

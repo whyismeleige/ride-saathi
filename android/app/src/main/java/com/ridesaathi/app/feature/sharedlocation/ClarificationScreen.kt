@@ -20,7 +20,6 @@ internal fun ClarificationScreen(
     onSelect: (SavedPlace) -> Unit,
     onCancel: () -> Unit
 ) {
-    RideScenicHeader()
     RideSectionTitle(word(if (shared) "selectSharedLocation" else "ambiguous"))
     if (shared) {
         Text(word("sharedSearchHint"), color = MaterialTheme.colorScheme.onSurfaceVariant)

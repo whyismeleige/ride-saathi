@@ -6,28 +6,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * Screen-specific shell header.
- *
- * [onBack] is null on screens where Android Back is intentionally unavailable (the first
- * onboarding stage and Home), so the reference layout never shows a dead circular control.
- * [showBrand] is off for onboarding, where the stage heading already carries the identity.
- */
+/** Reserved action slots keep the wordmark clear of Back and profile at larger font sizes. */
 @Composable
 internal fun RideScreenHeader(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     backLabel: String = "",
     showBrand: Boolean = true,
+    brandAtStart: Boolean = false,
     trailing: @Composable (RowScope.() -> Unit)? = null
 ) {
-    Row(
-        modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (onBack != null) CircularBackButton(backLabel, onBack)
-        if (showBrand) RideSaathiLogo(Modifier.weight(1f)) else Spacer(Modifier.weight(1f))
-        trailing?.invoke(this)
+    Row(modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!brandAtStart) Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            if (onBack != null) CircularBackButton(backLabel, onBack)
+        }
+        Box(Modifier.weight(1f), contentAlignment = if (brandAtStart) Alignment.CenterStart else Alignment.Center) {
+            if (showBrand) RideSaathiLogo()
+        }
+        Box(Modifier.width(48.dp), contentAlignment = Alignment.CenterEnd) {
+            if (trailing != null) Row(content = trailing)
+        }
     }
 }

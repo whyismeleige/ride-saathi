@@ -54,13 +54,14 @@ internal fun AppSession.AppNavigation() {
     }
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
         RideScreenHeader(
-            onBack = if (canNavigateBackFromHeader()) ::navigateBack else null,
+            onBack = if (canNavigateBackFromHeader() && !(screen == AppScreen.Onboarding && onboarding.step == OnboardingStep.Introduction && onboarding.introPage == 0)) ::navigateBack else null,
             backLabel = word("back"),
-            // Onboarding stages carry their own large headings, so the wordmark is dropped there.
-            showBrand = screen != AppScreen.Onboarding,
+            // Brand belongs to the illustrated pages; search/confirmation use a quiet back header.
+            showBrand = screen !in listOf(AppScreen.Clarification, AppScreen.SharedChoices, AppScreen.DestinationSearch, AppScreen.RideConfirmation),
+            brandAtStart = screen == AppScreen.Home,
             trailing = {
                 if (screen == AppScreen.Home) {
-                    RideHeaderAction(word("settings"), "person") { openSettings() }
+                    FilledTonalIconButton(onClick = { openSettings() }, colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = com.ridesaathi.app.core.ui.theme.RideColors.Mint), modifier = Modifier.size(48.dp).semantics { contentDescription = word("settings") }) { Text(profile.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge) }
                 }
             }
         )
@@ -98,6 +99,8 @@ internal fun AppSession.AppNavigation() {
                     PlaceEditorRoute(Modifier.fillMaxSize())
                 } else if (activeScreen == AppScreen.Settings) {
                     SettingsRoute(Modifier.fillMaxSize())
+                } else if (activeScreen == AppScreen.Home) {
+                    HomeRoute()
                 } else if (activeScreen == AppScreen.Onboarding) {
                     OnboardingRoute(Modifier.fillMaxSize())
                 } else Column(

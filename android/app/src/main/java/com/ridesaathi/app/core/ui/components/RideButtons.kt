@@ -1,6 +1,9 @@
 package com.ridesaathi.app.core.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -15,7 +18,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ridesaathi.app.core.ui.theme.RideColors
 import com.ridesaathi.app.core.ui.theme.RideShapes
-import com.ridesaathi.app.core.ui.theme.RideSpacing
 
 /**
  * Secondary action paired with [LargeButton]: a pill outlined in the new palette rather than
@@ -50,7 +52,7 @@ internal fun RideSecondaryButton(
 /**
  * Single-choice row used by the language step and the Settings language section.
  *
- * The whole row is selectable and the native radio indicator stays visible, so TalkBack
+ * The whole row is selectable and a custom check indicator stays visible, so TalkBack
  * announces a radio button and sighted users still see the selection.
  */
 @Composable
@@ -59,39 +61,47 @@ internal fun RideSelectionCard(
     selected: Boolean,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
+    subtitle: String = "",
     badge: @Composable () -> Unit
 ) {
     Surface(
         shape = RideShapes.medium,
-        color = if (selected) RideColors.Mint.copy(alpha = .45f) else MaterialTheme.colorScheme.surface,
+        color = if (selected) RideColors.Mint.copy(alpha = .15f) else MaterialTheme.colorScheme.surface,
         border = BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) RideColors.Emerald else RideColors.Border
+            1.dp,
+            if (selected) RideColors.SelectedBorder else RideColors.Border
         ),
         modifier = modifier.fillMaxWidth().clip(RideShapes.medium)
     ) {
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 80.dp)
+                .heightIn(min = 72.dp)
                 .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
-                .padding(16.dp),
+                .padding(horizontal = 18.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             badge()
-            Text(label, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            RadioButton(selected, onClick = null)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = MaterialTheme.typography.titleMedium)
+                if (subtitle.isNotEmpty()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = RideColors.Slate)
+            }
+            Box(Modifier.size(24.dp).clip(CircleShape)
+                .background(if (selected) RideColors.Emerald else Color.Transparent)
+                .border(if (selected) 0.dp else 1.5.dp, if (selected) Color.Transparent else RideColors.Slate.copy(alpha = .5f), CircleShape), contentAlignment = Alignment.Center) {
+                if (selected) RideIcon("check", Modifier.size(18.dp), Color.White)
+            }
         }
     }
 }
 
-/** Circular script badge; a distinct tint per row keeps the three options distinguishable. */
+/** Rounded-square script badge; a distinct tint per row keeps the three options distinguishable. */
 @Composable
 internal fun RideLanguageBadge(glyph: String, color: Color) {
-    Surface(shape = CircleShape, color = color) {
-        Box(Modifier.size(RideSpacing.Badge), contentAlignment = Alignment.Center) {
-            Text(glyph, style = MaterialTheme.typography.titleLarge)
+    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp), color = color) {
+        Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+            Text(glyph, fontSize = 27.sp, color = if (color == RideColors.Mint) RideColors.Emerald else Color.White)
         }
     }
 }

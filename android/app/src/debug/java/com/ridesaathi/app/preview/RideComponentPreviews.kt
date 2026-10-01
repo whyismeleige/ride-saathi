@@ -74,6 +74,6 @@ private fun VoicePreview() = ComponentShell {
 @Preview(name = "Scenic header", widthDp = 390, heightDp = 240)
 @Composable
 private fun ScenicPreview() = ComponentShell {
-    RideScenicHeader(home = true)
-    RideScenicHeader()
+    HomeIllustration()
+    LanguageIllustration()
 }

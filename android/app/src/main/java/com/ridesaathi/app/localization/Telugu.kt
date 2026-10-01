@@ -1,6 +1,13 @@
 package com.ridesaathi.app.localization
 
 internal val te = mapOf(
+    "goodMorning" to "శుభోదయం",
+    "goodAfternoon" to "శుభ మధ్యాహ్నం",
+    "goodEvening" to "శుభ సాయంత్రం",
+    "enterFullAddress" to "మీ పూర్తి చిరునామాను నమోదు చేయండి",
+    "typeManually" to "చిరునామా టైప్ చేయండి",
+    "searchSavedPlaces" to "సేవ్ చేసిన ప్రదేశాలను వెతకండి",
+    "addPlaceHint" to "త్వరగా బుక్ చేయడానికి ప్రదేశాన్ని సేవ్ చేయండి",
     "clear" to "వచనాన్ని తొలగించండి",
     "manualDestination" to "వేరే గమ్యస్థానాన్ని నమోదు చేయండి",
     "quickPlaces" to "మీ ప్రదేశాలు",

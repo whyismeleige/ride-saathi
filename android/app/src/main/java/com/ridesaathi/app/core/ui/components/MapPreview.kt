@@ -1,5 +1,8 @@
 package com.ridesaathi.app.core.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.Bitmap
@@ -41,7 +44,7 @@ private enum class MapStatus { Loading, Ready, Error }
 fun MapPreview(mapUrl: String, language: String) {
     // Android Studio cannot host the map WebView; only previews substitute decorative artwork.
     if (LocalInspectionMode.current) {
-        RideScenicHeader(home = true, modifier = Modifier.height(220.dp))
+        Box(Modifier.fillMaxWidth().height(220.dp).background(com.ridesaathi.app.core.ui.theme.RideColors.Sky), contentAlignment = androidx.compose.ui.Alignment.Center) { RideIcon("pin") }
         return
     }
     var attempt by remember(mapUrl) { mutableIntStateOf(0) }

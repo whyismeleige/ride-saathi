@@ -1,6 +1,13 @@
 package com.ridesaathi.app.localization
 
 internal val hi = mapOf(
+    "goodMorning" to "सुप्रभात",
+    "goodAfternoon" to "नमस्कार",
+    "goodEvening" to "शुभ संध्या",
+    "enterFullAddress" to "अपना पूरा पता लिखें",
+    "typeManually" to "पता लिखें",
+    "searchSavedPlaces" to "सहेजी गई जगहें खोजें",
+    "addPlaceHint" to "जल्दी बुकिंग के लिए जगह सहेजें",
     "clear" to "लिखा हुआ हटाएँ",
     "manualDestination" to "कोई दूसरी जगह दर्ज करें",
     "quickPlaces" to "आपकी जगहें",

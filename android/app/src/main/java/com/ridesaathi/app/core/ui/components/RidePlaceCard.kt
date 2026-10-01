@@ -2,7 +2,6 @@ package com.ridesaathi.app.core.ui.components
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -49,25 +48,20 @@ internal fun RidePlaceCard(
         animationSpec = spring(dampingRatio = 0.74f, stiffness = 420f),
         label = "placeCardPressScale"
     )
-    val elevation by animateDpAsState(
-        targetValue = if (pressed) 0.dp else 2.dp,
-        animationSpec = tween(180),
-        label = "placeCardElevation"
-    )
     Surface(
         onClick = onClick,
         interactionSource = interactionSource,
         shape = MaterialTheme.shapes.medium,
-        color = if (highlighted) RideColors.Mint.copy(alpha = .45f) else MaterialTheme.colorScheme.surface,
+        color = if (highlighted) androidx.compose.ui.graphics.Color(0xFFF2FCF8) else MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shadowElevation = elevation,
+        shadowElevation = 0.dp,
         modifier = modifier
             .fillMaxWidth()
             .scale(scale)
             .animateContentSize(tween(220, easing = FastOutSlowInEasing))
     ) {
         Row(
-            Modifier.heightIn(min = 80.dp).padding(18.dp),
+            Modifier.heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -86,7 +80,7 @@ internal fun RidePlaceCard(
                 }
                 supporting?.invoke()
             }
-            trailing?.invoke() ?: RideIcon("arrow", Modifier.size(18.dp))
+            trailing?.invoke() ?: RideIcon("arrow", Modifier.size(18.dp), RideColors.Slate)
         }
     }
 }

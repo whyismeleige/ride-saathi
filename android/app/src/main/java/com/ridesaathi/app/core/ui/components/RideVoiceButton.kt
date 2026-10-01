@@ -2,6 +2,9 @@ package com.ridesaathi.app.core.ui.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -38,9 +41,9 @@ internal fun RideVoicePulse(listening: Boolean, modifier: Modifier = Modifier) {
         Surface(
             shape = CircleShape,
             color = RideColors.Mint.copy(alpha = .45f),
-            modifier = Modifier.size(188.dp).scale(pulse)
+            modifier = Modifier.size(160.dp).scale(pulse)
         ) {}
-        Surface(shape = CircleShape, color = RideColors.Mint, modifier = Modifier.size(160.dp)) {}
+        Surface(shape = CircleShape, color = RideColors.Mint, modifier = Modifier.size(132.dp)) {}
     }
 }
 
@@ -59,18 +62,18 @@ internal fun RideVoiceButton(listening: Boolean, word: (String) -> String, onTog
         animationSpec = tween(180),
         label = "micPress"
     )
-    Box(Modifier.size(216.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(164.dp), contentAlignment = Alignment.Center) {
         RideVoicePulse(listening)
         Surface(
             onClick = onToggle,
             interactionSource = interaction,
             shape = CircleShape,
-            color = RideColors.Emerald,
+            color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             border = BorderStroke(3.dp, MaterialTheme.colorScheme.surface),
             shadowElevation = 6.dp,
             modifier = Modifier
-                .size(132.dp)
+                .size(104.dp)
                 .scale(pressScale)
                 .semantics {
                     role = Role.Button
@@ -78,8 +81,8 @@ internal fun RideVoiceButton(listening: Boolean, word: (String) -> String, onTog
                     stateDescription = word(if (listening) "listening" else "tapSpeak")
                 }
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                RideIcon("mic", Modifier.size(52.dp), color = LocalContentColor.current)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF25BC8A), Color(0xFF087661), Color(0xFF129675)))), contentAlignment = Alignment.Center) {
+                RideIcon("mic", Modifier.size(46.dp), color = LocalContentColor.current)
             }
         }
     }
