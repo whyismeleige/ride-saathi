@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import ArgumentError
@@ -50,24 +50,23 @@ class Settings(BaseSettings):
     # Persistence is optional for startup and place search.
     database_url: str = Field(default="", repr=False)
 
-    # No fallback signing/encryption keys: auth fails closed until configured.
-    app_jwt_secret: SecretStr = Field(default=SecretStr(""), repr=False)
-    app_jwt_algorithm: Literal["HS256"] = "HS256"
-    app_access_token_ttl_seconds: int = Field(default=3600, ge=60, le=2592000)
-    app_callback_uri: str = ""
-    uber_client_id: str = ""
-    uber_client_secret: SecretStr = Field(default=SecretStr(""), repr=False)
-    uber_redirect_uri: str = ""
-    uber_scopes: str = "profile offline_access"
-    uber_timeout_seconds: float = Field(default=8, gt=0, le=60)
-    uber_credential_encryption_key: SecretStr = Field(default=SecretStr(""), repr=False)
+    # First-party Ride Saathi authentication is future work; no auth settings
+    # live here until an implementation needs them. V1 deep-link handoff to
+    # the external Uber app must NOT depend on Uber OAuth, so no Uber
+    # OAuth/credential settings are configured.
 
     db_echo: bool = False
     db_pool_size: int = Field(default=5, ge=1)
     db_max_overflow: int = Field(default=0, ge=0)
     db_null_pool: bool = False
 
-    @field_validator("db_echo", "db_null_pool", mode="before")
+    # Minimal abuse protection for the privileged maps proxy (single-instance
+    # in-memory window; see destinations router docstring).
+    maps_rate_limit_per_minute: int = Field(default=60, ge=1, le=6000)
+    maps_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    trust_proxy_headers: bool = False
+
+    @field_validator("db_echo", "db_null_pool", "trust_proxy_headers", mode="before")
     @classmethod
     def strict_database_boolean(cls, value: object) -> object:
         if isinstance(value, str):
@@ -78,6 +77,7 @@ class Settings(BaseSettings):
 
     @field_validator(
         "port", "ola_maps_timeout_seconds", "db_pool_size", "db_max_overflow",
+        "maps_rate_limit_per_minute", "maps_rate_limit_window_seconds",
         mode="before",
     )
     @classmethod
@@ -89,6 +89,20 @@ class Settings(BaseSettings):
     @classmethod
     def strip_trailing_slash(cls, value: str) -> str:
         return value.rstrip("/")
+
+    @model_validator(mode="after")
+    def require_production_secrets(self):
+        if self.environment == "production":
+            missing: list[str] = []
+            if not self.ola_maps_api_key:
+                missing.append("OLA_MAPS_API_KEY")
+            if not self.database_url.strip():
+                missing.append("DATABASE_URL")
+            if missing:
+                raise ValueError(
+                    f"Missing required production settings: {', '.join(missing)}"
+                )
+        return self
 
 
 settings = Settings()

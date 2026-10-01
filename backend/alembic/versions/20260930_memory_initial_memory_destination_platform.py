@@ -7,9 +7,10 @@ Create Date: 2026-09-30 20:19:41.155282
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = '20260930_memory'
 down_revision: str | None = None
@@ -32,7 +33,7 @@ def upgrade() -> None:
     for enum in ENUMS:
         enum.create(op.get_bind(), checkfirst=False)
     op.create_table('users',
-    sa.Column('name', sa.Text(), nullable=False),
+    sa.Column('name', sa.Text(), nullable=True),
     sa.Column('phone', sa.Text(), nullable=True),
     sa.Column('email', sa.Text(), nullable=True),
     sa.Column('preferred_language', language_code, server_default='en', nullable=False),
@@ -42,6 +43,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.CheckConstraint("NOT onboarding_completed OR (name IS NOT NULL AND name ~ '[^[:space:]]')", name=op.f('ck_users_completed_name_present')),
     sa.PrimaryKeyConstraint('id', name=op.f('pk_users')),
     sa.UniqueConstraint('email', name=op.f('uq_users_email')),
     sa.UniqueConstraint('phone', name=op.f('uq_users_phone'))
@@ -75,6 +77,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_saved_places_place_type'), 'saved_places', ['place_type'], unique=False)
     op.create_index(op.f('ix_saved_places_provider_place_id'), 'saved_places', ['provider_place_id'], unique=False)
     op.create_index(op.f('ix_saved_places_user_id'), 'saved_places', ['user_id'], unique=False)
+    op.create_index('uq_saved_places_active_home', 'saved_places', ['user_id'], unique=True, postgresql_where=sa.text("place_type = 'home' AND is_active"))
     op.create_table('user_preferences',
     sa.Column('user_id', sa.Uuid(), nullable=False),
     sa.Column('confirmation_mode', confirmation_mode, server_default='always', nullable=False),
@@ -254,6 +257,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_saved_places_provider_place_id'), table_name='saved_places')
     op.drop_index(op.f('ix_saved_places_place_type'), table_name='saved_places')
     op.drop_index(op.f('ix_saved_places_is_active'), table_name='saved_places')
+    op.drop_index('uq_saved_places_active_home', table_name='saved_places')
     op.drop_table('saved_places')
     op.drop_index(op.f('ix_users_status'), table_name='users')
     op.drop_index(op.f('ix_users_onboarding_completed'), table_name='users')

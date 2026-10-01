@@ -1,10 +1,10 @@
+import httpx
 import pytest
 from fastapi.testclient import TestClient
-import httpx
 
 from app.core import config
-from app.main import app
 from app.integrations.maps import ola_maps
+from app.main import app
 
 client = TestClient(app)
 
@@ -27,6 +27,7 @@ def upstream(handler):
             return httpx.Client(transport=httpx.MockTransport(handler))
 
         monkeypatch.setattr(ola_maps, "build_client", _factory)
+        monkeypatch.setattr(ola_maps, "get_shared_client", _factory)
 
     return _install
 

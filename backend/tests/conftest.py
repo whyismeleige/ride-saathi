@@ -7,13 +7,13 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
-from app.main import app
 import pytest_asyncio
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import database_url
 from app.db.session import create_engine
+from app.main import app
 
 
 @pytest.fixture(scope="session")
@@ -54,6 +54,18 @@ async def db(postgres_url):
             await transaction.rollback()
     finally:
         await engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def reset_runtime_singletons():
+    from app.integrations.maps import ola_maps
+    from app.modules.destinations import router as destinations_router
+
+    ola_maps.close_shared_client()
+    destinations_router._reset_rate_limit()
+    yield
+    ola_maps.close_shared_client()
+    destinations_router._reset_rate_limit()
 
 
 @pytest.fixture(autouse=True)

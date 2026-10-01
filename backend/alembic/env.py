@@ -3,9 +3,9 @@
 import asyncio
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import Connection
 
+from alembic import context
 from app import models  # noqa: F401 -- register every mapped class
 from app.core.config import database_url, settings
 from app.db.base import Base

@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from datetime import datetime
-from decimal import Decimal
+from typing import TYPE_CHECKING
 from uuid import UUID
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, Text, UniqueConstraint, func, text
-from sqlalchemy.dialects.postgresql import JSONB
+
+from sqlalchemy import ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.db.base import Base, Timestamps, CreatedAt, UUIDPrimaryKey
-from app.models.enums import pg_enum
-from app.models.enums import HandoffStatus
+
+from app.db.base import Base, CreatedAt, UUIDPrimaryKey
+from app.models.enums import HandoffStatus, pg_enum
+
+if TYPE_CHECKING:
+    from app.models.ride_session import RideSession
 
 class HandoffEvent(UUIDPrimaryKey, CreatedAt, Base):
     __tablename__ = "handoff_events"
@@ -17,3 +21,4 @@ class HandoffEvent(UUIDPrimaryKey, CreatedAt, Base):
     handoff_created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     handoff_opened_at: Mapped[datetime | None]
     failure_reason: Mapped[str | None] = mapped_column(Text)
+    ride_session: Mapped[RideSession] = relationship(lazy="raise")
