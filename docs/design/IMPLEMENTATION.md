@@ -1,169 +1,87 @@
-# Ride Saathi v1 UI implementation
+# Android UI — reference artwork with usability-led layouts
 
-This branch is `feat/v1-ui-redesign`. It is a visual refactor of the existing Compose app:
-the app is still one Gradle module with the same `AppSession`, feature controllers, typed
-`AppScreen` navigation and `LocalStore` format. No architecture, storage or API changed.
+The PNGs establish the illustrations, palette and visual character. The latest user direction
+replaces literal layout reproduction with clearer, roomier layouts. Existing AppSession,
+controllers, persistence, localization, search, voice services, permissions, maps and Uber
+handoff remain in use.
 
-## Visual design tokens
+## Current layouts
 
-`core/ui/theme` owns the palette, typography, shapes and spacing.
+- **Onboarding:** 24dp gutters, naturally wrapping headings/helpers, smaller contained artwork,
+  and Continue outside the scroll area. Compact/keyboard-reduced pages hide artwork. Name entry
+  requests focus when the field is composed; its action stays above the IME.
+- **Opening:** voice-first introduction and replayable illustration, with a full-width CTA in
+  the same predictable footer as other setup steps.
+- **Home setup:** one explicit address-search action replaces controls that opened the same
+  flow. Home remains compulsory. Address editing prioritizes the actual address and map.
+- **Address search:** field directly below the header, roomy scrollable results, visible
+  attribution and persistent Continue. Row selection invokes the existing callback; Continue
+  accepts the first highlighted real result. No empty-result message during search debounce.
+- **Booking:** greeting/prompt have their own space above the clipped illustration/microphone
+  panel. Manual destination entry follows voice. Larger 164dp quick-place cards have readable
+  names/localities and horizontal scrolling. The noninteractive Book ride footer is removed.
+- **Saved places:** search, settings access and places share a scrollable area; Done stays in
+  a footer. The illustration is smaller and omitted on short screens. Header content can
+  scroll when larger text or the keyboard reduces available space.
+- **Controls:** 56dp minimum inputs; 72dp minimum place/language rows; more internal padding;
+  wrapping button labels with room for arrows; neutral, unraised disabled buttons.
+- **Header:** 64dp minimum height and reserved action slots prevent Back/profile overlap with
+  the wordmark. Repeated corner-decoration overlays are removed.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Navy | `#09285D` | Primary text, wordmark, icons |
-| Emerald | `#078365` | Primary action fill, selected outlines, icon tint |
-| Mint | `#DDF6E9` | Voice rings, selected/primary result tint |
-| Cream | `#FFFAF1` | App background |
-| Sky | `#E6F4FF` | Scenic sky, secondary container |
-| Orange | `#C65B15` | Home badge icon and roof artwork |
-| Peach | `#FFEBD9` | Home badge container, illustration accents |
-| Lavender | `#EEE8FC` | Telugu language badge |
-| Slate | `#526580` | Secondary/supporting text |
-| Border | `#DCE8E2` | Very subtle 1dp card borders |
-| Red | `#AC383E` | Destructive and error text |
+Layouts use flexible widths capped at 600dp, scrolling for smaller viewports/larger text, and
+48dp-or-larger interactive targets. Existing screen transitions, press feedback and voice pulse
+remain. The visual palette and screen-specific artwork are retained.
 
-Orange is a darker shade than the concept's `#FF922E` because that orange fails contrast as
-text on cream; it is used for icon strokes and artwork instead.
-
-- Typography: Android sans-serif. 34/42sp hero, 30/38sp heading, 22/30sp section title,
-  18/26sp card title, 18sp and 16sp body, 17sp button label. All styles wrap and scale with
-  the system font-size setting; no fixed heights on text containers.
-- Shapes: 16dp extra small through 32dp extra large, plus `RidePill` for primary buttons.
-- Spacing: `RideSpacing` provides Small/Medium/Screen/Control/Badge tokens; individual layouts
-  use local spacing where that expresses the screen better.
-- System chrome: transparent status and navigation bars with dark icons, `safeDrawingPadding`
-  and `imePadding` on the shell root. No simulated status bar is drawn — the concept boards
-  show iOS chrome, which this Android app deliberately does not imitate.
-
-## Reusable components
-
-| Component | File | Purpose |
-| --- | --- | --- |
-| `RideScreenHeader` | `RideScreenHeader.kt` | Screen-specific shell header; null `onBack` hides the control |
-| `RideHeaderAction` | `RidePlaceCard.kt` | Circular header action (Settings entry point) |
-| `RideSaathiLogo`, `CircularBackButton`, `RideIconBadge`, `RideSectionTitle` | `RidePrimitives.kt` | Wordmark, back control, circular badges, heading semantics |
-| `RideLanguageChoices`, `RideSelectionCard`, `RideLanguageBadge` | `RidePrimitives.kt`, `RideButtons.kt` | Single-choice rows shared by onboarding and Settings |
-| `RidePlaceCard`, `RideCandidateCard` | `RidePlaceCard.kt` | The single card treatment for saved places, address results and destination candidates |
-| `RideSecondaryButton` | `RideButtons.kt` | Outlined pill secondary action, 56dp minimum |
-| `RideSearchField` | `RideSearchField.kt` | Rounded search input with optional focus, supporting status line and trailing affordance |
-| `RideLoadingState`, `RideErrorState`, `RideEmptyState` | `RideStates.kt` | Consistent loading/error/empty treatments |
-| `RideVoiceButton`, `RideVoicePulse` | `RideVoiceButton.kt` | Dominant microphone and its concentric mint rings |
-| `RideScenicHeader` | `RideScenicHeader.kt` | Decorative Canvas artwork |
-| `LargeButton`, `PlaceRow`, `SectionCard`, `SpeechTranscript`, `ExpandableAddress`, `MapPreview`, `StickyMicrophone`, `RideIcon` | existing | Reused, restyled to the new palette and shapes |
-
-`PlaceRow` is now a thin wrapper over `RidePlaceCard`, and `AddressPicker` results render
-through the same card, so there is a single card treatment rather than three.
-
-## Reference mapping
+## Reference → implementation
 
 | Reference | Compose implementation |
 | --- | --- |
-| `ride-saathi-opening-screen.png` | `OnboardingScreen` introduction stage, `TutorialScreen` |
-| `ride-saathi-choose-your-language-screen.png` | `OnboardingScreen` language stage, shared `RideLanguageChoices` |
-| `ride-saathi-user-name-enter-screen.png` | `OnboardingScreen` name stage: required `profile.name`, person icon, clear action, IME Next |
-| `ride-saathi-home-saving-screen.png` | `OnboardingScreen` Home stage, `PlaceEditorScreen` |
-| `ride-saathi-save-address-screen.png` | `AddressPicker`: focused search, scrollable real results, badges, loading/empty states, attribution |
-| `saved-places-screen.png` | `SettingsScreen`, onboarding places stage |
-| `booking-screen.png` | `HomeScreen`: real profile name, central voice action, Home-first quick places, manual entry |
-| `ride-saathi-entire-reference.png` | `DestinationSearchScreen`, `ClarificationScreen`, `RideConfirmationScreen`, tutorial styling |
+| `ride-saathi-opening-screen.png` | `OnboardingScreen(Introduction)`, `IntroIllustration` |
+| `ride-saathi-choose-your-language-screen.png` | `OnboardingScreen(Language)`, `LanguageIllustration`, custom choices |
+| `ride-saathi-user-name-enter-screen.png` | `OnboardingScreen(Name)`, `NameIllustration`, custom input |
+| `ride-saathi-home-saving-screen.png` | `HomeSetupContent`, `HomeIllustration` |
+| `ride-saathi-save-address-screen.png` | Native field/results in `AddressPicker`; search space takes priority over decoration |
+| `saved-places-screen.png` | `SettingsScreen`, `SavedPlacesIllustration`, `PlaceRow` |
+| `booking-screen.png` | `HomeScreen`, `BookingIllustration`, `RideVoiceButton` |
+| `ride-saathi-entire-reference.png` | Shared card/input/button styling for intermediate states; real map and Uber handoff |
 
-## Illustrations
+## Components and artwork
 
-`RideScenicHeader` draws normalized Canvas artwork — sky gradient, clouds, buildings, mint
-hills, road, trees, an optional house and a small car. No reference bitmap is used at runtime
-and no screenshot is rendered behind invisible controls; every control and label is real
-Compose UI. The component is decorative only, isolated from screen logic, and called through a
-single function so final vector assets can replace it without touching screens.
+`tools/extract_artwork.py` extracts decorative-only crops. The booking alpha mask excludes
+text, microphone, labels and controls. All controls and text remain Compose; there is no
+full-screen screenshot background. Decorative images have null descriptions.
 
-Future assets that could replace the Canvas artwork: separate introduction (person + skyline),
-name (friendly figure), Home (house + garden), city, and a simplified travel/road variant.
+`RideActionFooter` serves onboarding, Home setup, address search, place editing and Saved
+Places. `RidePlaceCard` remains the shared result/place row. `RideSearchField` uses a custom
+`BasicTextField`; language choices retain custom checks with radio semantics.
 
-## Deliberate deviations from the mockups
+The generic `RideScenicHeader`, onboarding progress UI, default outlined fields, stock radio
+visuals and obsolete scenery tokens remain removed. The earlier `RidePageDecoration` overlay
+and its four corner-art assets are also removed. Android sans-serif reflows without forced
+screenshot-specific line breaks in the layout.
 
-- **Header.** The concept boards use per-screen headers, so the generic global top row was
-  replaced by `RideScreenHeader`. Back appears only where Android Back is valid, and the
-  wordmark is hidden on onboarding where the stage heading already carries the identity. This
-  preserves the existing Back contract rather than the mockup's back button on the first
-  language screen, which onboarding rules forbid.
-- **Greeting.** `HomeScreen` uses the localized `hello` plus the saved profile name. The
-  concept's "Good morning" is time-of-day logic with no existing support; the name is never
-  hardcoded.
-- **Bottom navigation.** The concept shows Book Ride and History. There is no Ride Saathi trip
-  history feature in `AppScreen`, so no bottom bar and no History destination were invented.
-- **Ride confirmation.** While the handoff is in progress the primary action stays labelled
-  "Yes, open Uber" and disabled, with progress shown in a separate loading state, rather than
-  the button relabelling itself with a loading string.
-- **Saved places.** Quick cards and rows show real saved-place names with semantic Home/pin
-  badges. The `SavedPlace` model has no Work/category field, so no Work, clinic or temple
-  examples exist.
-- **Address picking.** Result selection goes straight to the existing editor state, so cards
-  use a chevron rather than a persistent radio selection. There is no current-location or
-  map-picker action in `PlaceEditorController`, so neither was fabricated. Distances are
-  omitted because `PlaceCandidate` does not supply them.
-- **Language step.** The mockup shows a circular back button; the app does not, because Back
-  must not unwind past the start of onboarding.
+## Functional boundaries
 
-## Behaviour deliberately left unchanged
+No tracking, fares, payments or booking APIs were added. V1 has no History data model,
+reverse-geocoding current-location action or interactive map picker; unsupported controls
+are not fabricated. Text search, map verification, saved-place editing/deletion, language
+selection, tutorial access and compulsory setup remain available.
 
-Speech recognition and TTS, language selection, persisted profile and places, the Home
-requirement, saved-place editing, current-location lookups, address search, destination search
-and paging, clarification and shared links, permission handling, map provider and WebView
-lifecycle, Uber deep-link handoff and Play Store/web fallback, debounce and cancellation
-contracts, `LocalStore` keys and JSON format, and the navigation and Back rules. Backend APIs,
-storage format, DI and navigation frameworks are unchanged. No new runtime dependencies.
+## Review and validation
 
-## Concept screens intentionally not implemented
+[LAYOUT_REVIEW.md](LAYOUT_REVIEW.md) records before/after evidence. `comparisons/` pairs the
+original mockups with current Compose output to show visual lineage, not pixel equality.
 
-Vehicle/fare selection, finding a driver, driver details and photos, driver tracking, trip
-progress, arrival and trip history. Uber owns booking, tracking and payment in V1. These were
-treated as style references only.
-
-## Previews and accessibility
-
-`app/src/debug/.../preview/RidePreviews.kt` covers intro, language, name, Home setup, address
-results, saved places/Settings, booking, destination search, clarification and confirmation.
-`RideComponentPreviews.kt` covers the header, buttons, selection rows, cards, voice states,
-scenic artwork and the loading/error/empty states. Fixtures exist only in the debug source set.
-
-Minimum touch targets are 48dp, with 56dp for secondary controls and 64dp for primary
-buttons. The voice action exposes both an action label and a state description. Language rows
-expose radio-button semantics. Headings expose heading semantics. Forms and result lists
-scroll, the name input supports IME Next, and the shell handles safe-area and IME insets.
-
-Not verified here: runtime TalkBack output, physical keyboard overlap, rendering at large font
-scales on a device, and landscape on real hardware. Those need a device or emulator pass.
-
-## Validation
-
-Run from `android/`:
-
-```sh
-./gradlew test                                        # fails: see below
-./gradlew :app:testDebugUnitTest :app:testQaUnitTest   # passed
-./gradlew assembleDebug                                # passed
-./gradlew assembleQa                                   # passed
-./gradlew :app:assembleQaAndroidTest                   # passed
-./gradlew :app:lintDebug :app:lintQa                   # passed
-node --test app/src/test/js/map-preview.test.cjs        # passed (4 tests)
+```bash
+cd android
+./gradlew :app:updateDebugScreenshotTest :app:validateDebugScreenshotTest
+cd ..
+python docs/design/tools/compare_screens.py
 ```
 
-**`./gradlew test` cannot pass in this environment.** The aggregate task includes the `release`
-variant, and `processReleaseGoogleServices` fails with:
+The host renderer uses screenshot plugin alpha13 with AGP 8.13.2. Thirteen cases cover the
+seven main screens, 320/360/390/430dp widths, 1.4× text, a reduced name-entry viewport and
+an empty compulsory-name field. Baselines guard against later regressions.
 
-```
-> File google-services.json is missing.
-  The Google Services Plugin cannot function without it.
-```
-
-`google-services.json` is listed in `.gitignore` and only `debug`, `qa`, `main`, `test` and
-`androidTest` copies are committed — there is no `src/release` copy. This branch changes no
-Gradle or manifest file, so the failure is pre-existing and unrelated to the redesign. The two
-shipped variants are covered by the `testDebugUnitTest` and `testQaUnitTest` tasks above,
-which pass.
-
-Lint reports 21 warnings and 1 hint for both variants. All of them are in
-`build.gradle.kts`, the manifest, `network_security_config.xml`, or pre-existing non-UI
-sources; none are in `core/ui`, `feature/*` or `navigation/*`.
-
-No connected-device test result is claimed. No emulator or device was available, so
-`connectedQaAndroidTest` was not run.
+See [VALIDATION.md](VALIDATION.md) for results. The local AVD has no system image; no connected-
+device tests were run and the physical phone was not modified.

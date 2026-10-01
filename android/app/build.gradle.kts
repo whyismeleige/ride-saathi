@@ -1,6 +1,7 @@
 import java.util.Properties
 
 plugins {
+  id("com.android.compose.screenshot")
   id("com.android.application")
   id("org.jetbrains.kotlin.android")
   id("org.jetbrains.kotlin.plugin.compose")
@@ -29,6 +30,7 @@ fun escaped(value: String): String =
         value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
 
 android {
+  experimentalProperties["android.experimental.enableScreenshotTest"] = true
   namespace = "com.ridesaathi.app"
   compileSdk = 36
 
@@ -106,6 +108,8 @@ create("qa") {
 }
 
 dependencies {
+  screenshotTestImplementation("com.android.tools.screenshot:screenshot-validation-api:0.0.1-alpha13")
+  screenshotTestImplementation("androidx.compose.ui:ui-tooling")
   implementation(platform("androidx.compose:compose-bom:2025.05.00"))
   implementation("androidx.activity:activity-compose:1.10.1")
   implementation("androidx.compose.material3:material3")
