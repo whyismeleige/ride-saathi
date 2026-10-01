@@ -109,7 +109,7 @@ Set `PORT` to change the host port; the container always listens on port 8000.
 ### Production
 
 Create `.env.production` from `.env.production.example` and set
-`OLA_MAPS_API_KEY`. This file is ignored by Git and excluded from Docker builds.
+`OLA_MAPS_API_KEY` and `DATABASE_URL`. This file is ignored by Git and excluded from Docker builds.
 
 ```bash
 docker compose --env-file .env.production -f compose.production.yaml up --build -d --wait
@@ -197,9 +197,11 @@ variables are documented in the architecture guide and added when implemented.
 
 The app is provider-agnostic (works on Railway, Render, Cloud Run, Fly.io,
 Koyeb, or a VPS). From `backend`, install with `uv sync --locked --no-dev`,
-then run `uv run --locked --no-dev uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`
+then run `uv run --locked --no-dev uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-access-log`
 (or use the included `Dockerfile`, which already respects `$PORT`) and set
-`OLA_MAPS_API_KEY` as a platform secret/environment variable.
+`ENVIRONMENT=production`, with `OLA_MAPS_API_KEY` and `DATABASE_URL` supplied as
+platform secrets/environment variables. Run `uv run --locked --no-dev alembic upgrade head`
+as a deployment step before serving traffic.
 
 Notes for production:
 

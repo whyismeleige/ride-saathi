@@ -6,6 +6,7 @@ keep its existing user-facing behavior.
 """
 
 import math
+from threading import Lock
 
 import httpx
 
@@ -27,22 +28,25 @@ def build_client() -> httpx.Client:
 
 
 _shared_client: httpx.Client | None = None
+_client_lock = Lock()
 
 
 def get_shared_client() -> httpx.Client:
     """Process-wide reused connection pool for autocomplete requests."""
     global _shared_client
-    if _shared_client is None:
-        _shared_client = build_client()
-    return _shared_client
+    with _client_lock:
+        if _shared_client is None:
+            _shared_client = build_client()
+        return _shared_client
 
 
 def close_shared_client() -> None:
     """Release the shared pool; called on FastAPI shutdown."""
     global _shared_client
-    if _shared_client is not None:
-        _shared_client.close()
-        _shared_client = None
+    with _client_lock:
+        if _shared_client is not None:
+            _shared_client.close()
+            _shared_client = None
 
 
 class OlaMapsProvider:

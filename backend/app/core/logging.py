@@ -16,7 +16,7 @@ _REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 def _request_id(value: str | None) -> str:
     """Reuse an externally supplied id only when it is safe to echo/log."""
-    if value and _REQUEST_ID_PATTERN.match(value):
+    if value and _REQUEST_ID_PATTERN.fullmatch(value):
         return value
     return uuid.uuid4().hex[:16]
 

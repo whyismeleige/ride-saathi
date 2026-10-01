@@ -1,3 +1,6 @@
+import time
+from collections import OrderedDict
+from threading import Lock
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -48,7 +51,8 @@ def _invalid() -> JSONResponse:
 # Minimal in-memory abuse protection for the privileged maps proxy.
 # Single-instance only: use reverse-proxy throttling when scaling horizontally.
 # X-Forwarded-For is honored only when TRUST_PROXY_HEADERS is explicitly enabled.
-_rate_buckets: dict[str, list[float]] = {}
+_rate_buckets: OrderedDict[str, list[float]] = OrderedDict()
+_rate_lock = Lock()
 
 
 def _client_key(request: Request) -> str:
@@ -62,26 +66,34 @@ def _client_key(request: Request) -> str:
 
 
 def _check_rate_limit(request: Request) -> JSONResponse | None:
-    import time
-
-    now = time.monotonic()
     window = settings.maps_rate_limit_window_seconds
     limit = settings.maps_rate_limit_per_minute
     key = _client_key(request)
-    hits = [t for t in _rate_buckets.get(key, []) if now - t < window]
-    if len(hits) >= limit:
+    # Sync endpoints run in worker threads. Admission and eviction must be atomic.
+    with _rate_lock:
+        now = time.monotonic()
+        # Buckets are ordered by their last admitted request. Remove inactive
+        # clients even when they never return, without scanning active buckets.
+        while _rate_buckets:
+            oldest_hits = next(iter(_rate_buckets.values()))
+            if now - oldest_hits[-1] < window:
+                break
+            _rate_buckets.popitem(last=False)
+        hits = [t for t in _rate_buckets.get(key, []) if now - t < window]
+        if len(hits) >= limit:
+            return JSONResponse(
+                status_code=429,
+                content={"error": {"code": "QUOTA", "message": ERROR_MESSAGES["QUOTA"]}},
+            )
+        hits.append(now)
         _rate_buckets[key] = hits
-        return JSONResponse(
-            status_code=429,
-            content={"error": {"code": "QUOTA", "message": ERROR_MESSAGES["QUOTA"]}},
-        )
-    hits.append(now)
-    _rate_buckets[key] = hits
+        _rate_buckets.move_to_end(key)
     return None
 
 
 def _reset_rate_limit() -> None:
-    _rate_buckets.clear()
+    with _rate_lock:
+        _rate_buckets.clear()
 
 
 @router.get("/autocomplete", response_model=PlacesResponse)

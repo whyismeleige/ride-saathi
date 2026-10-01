@@ -1,15 +1,20 @@
 """Runtime hardening: rate limits, request ids, readiness, prod config."""
 
 import re
+from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
+from app.api.endpoints import health
 from app.core import config
 from app.core.config import Settings
 from app.integrations.maps import ola_maps
 from app.main import app
+from app.modules.destinations import router as destinations_router
 
 client = TestClient(app)
 
@@ -52,7 +57,7 @@ def test_untrusted_forwarded_header_ignored_by_default(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "request_id", ["bad id with spaces!", "x" * 65, "../../etc", ""]
+    "request_id", ["bad id with spaces!", "x" * 65, "../../etc", "", "valid-id\n"]
 )
 def test_invalid_request_id_is_replaced(request_id):
     response = client.get("/health", headers={"X-Request-Id": request_id})
@@ -85,6 +90,52 @@ def test_ready_with_unreachable_database(monkeypatch):
     response = client.get("/ready")
     assert response.status_code == 503
     assert response.json() == {"status": "not_ready", "database": "unreachable"}
+
+
+@pytest.mark.parametrize("url", ["invalid-secret-url", "sqlite:///secret.db"])
+def test_ready_with_invalid_database_configuration(monkeypatch, url):
+    monkeypatch.setattr(config.settings, "database_url", url)
+    response = client.get("/ready")
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready", "database": "unreachable"}
+
+
+def test_ready_connection_timeout_disposes_engine(monkeypatch):
+    monkeypatch.setattr(config.settings, "database_url", "postgresql://u@h/db")
+    engine = MagicMock()
+    engine.connect.return_value.__aenter__ = AsyncMock(side_effect=TimeoutError)
+    engine.dispose = AsyncMock()
+    monkeypatch.setattr(health, "create_engine", lambda *args, **kwargs: engine)
+    assert client.get("/ready").status_code == 503
+    engine.dispose.assert_awaited_once()
+
+
+def test_rate_limit_expires_inactive_clients(monkeypatch):
+    monkeypatch.setattr(config.settings, "maps_rate_limit_per_minute", 1)
+    monkeypatch.setattr(config.settings, "maps_rate_limit_window_seconds", 60)
+    monkeypatch.setattr(config.settings, "trust_proxy_headers", False)
+    request = Request({"type": "http", "client": ("192.0.2.1", 1234)})
+    monkeypatch.setattr(destinations_router.time, "monotonic", lambda: 100.0)
+    assert destinations_router._check_rate_limit(request) is None
+    assert destinations_router._check_rate_limit(request).status_code == 429
+    monkeypatch.setattr(destinations_router.time, "monotonic", lambda: 160.0)
+    other = Request({"type": "http", "client": ("192.0.2.2", 1234)})
+    assert destinations_router._check_rate_limit(other) is None
+    assert "192.0.2.1" not in destinations_router._rate_buckets
+    assert destinations_router._check_rate_limit(request) is None
+
+
+def test_rate_limit_admission_is_atomic(monkeypatch):
+    monkeypatch.setattr(config.settings, "maps_rate_limit_per_minute", 7)
+    monkeypatch.setattr(config.settings, "trust_proxy_headers", False)
+    monkeypatch.setattr(destinations_router.time, "monotonic", lambda: 100.0)
+    request = Request({"type": "http", "client": ("192.0.2.1", 1234)})
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        responses = list(executor.map(
+            lambda _: destinations_router._check_rate_limit(request), range(100)
+        ))
+    assert sum(response is None for response in responses) == 7
+    assert all(response is None or response.status_code == 429 for response in responses)
 
 
 def test_production_requires_maps_key_and_database():
