@@ -24,7 +24,7 @@ Ride Saathi currently includes:
 - Debug/QA network security config for local backend testing
 - JVM, JavaScript, backend, and Android instrumentation test coverage for the core flows
 
-The project also includes a small FastAPI backend in `backend/`. The Android app calls this backend for place autocomplete so the Ola Maps API key never ships inside the APK.
+The project also includes a small FastAPI backend in `backend/`. The Android app calls this backend for place autocomplete and online neural speech, keeping Ola Maps and Azure Speech keys out of the APK. See [Azure voice setup](docs/AZURE_VOICE_PIPELINE.md) for STT, LLM destination interpretation, TTS and barge-in.
 
 ## What It Does Not Do
 
@@ -78,7 +78,7 @@ lives in `android/`.
 | `website/` | Responsive Ride Saathi showcase site (plain HTML, CSS, and JavaScript) |
 | `android/` | Complete Android Studio/Gradle project, including the app module and wrapper |
 | `android/app/` | Android app, Compose UI, domain logic, map assets, JVM and instrumentation tests |
-| `backend/` | FastAPI place-search proxy for Ola Maps |
+| `backend/` | FastAPI maps proxy and Azure STT/LLM/TTS voice pipeline |
 | `docs/` | Product, pilot-testing, validation, and codebase guides |
 
 ## Website

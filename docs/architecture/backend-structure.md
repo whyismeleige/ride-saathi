@@ -11,7 +11,12 @@ The V1 product flow is voice/text destination input → destination resolution �
 confirmation → pickup/destination snapshot → preferred ride/product selection →
 deep-link handoff to the external Uber app. Ride Saathi does NOT claim a ride
 was booked after the handoff. Onboarding, saved-place CRUD, destination ranking,
-STT/TTS, and LLM parsing remain to be implemented (see backend-backlog.md).
+and richer destination services remain to be implemented (see backend-backlog.md).
+
+Online TTS is implemented through `modules/speech/router.py` and the
+`SpeechProvider` protocol in `integrations/speech/`, with an Azure adapter selected
+by `get_speech_provider`. Bounded Azure STT and Azure OpenAI interpretation are
+composed in `modules/speech/turn.py`; see [Azure voice pipeline](../AZURE_VOICE_PIPELINE.md).
 
 ## Current directory tree
 
@@ -30,11 +35,13 @@ backend/
 │   │   ├── endpoints/health.py
 │   │   └── v1/router.py
 │   ├── modules/
+│   │   ├── speech/                # router.py synthesis, turn.py STT/LLM
 │   │   └── destinations/
 │   │       ├── router.py
 │   │       ├── schemas.py
 │   │       └── service.py
 │   ├── integrations/
+│   │   ├── speech/                # base.py protocol, azure.py adapter
 │   │   └── maps/
 │   │       ├── base.py
 │   │       └── ola_maps.py
@@ -180,7 +187,8 @@ Add `resolve_place` to the contract only when a real resolution use case needs
 it, and update each adapter and fake together. Future Google Maps, Mapbox, and
 HERE adapters use the same boundary; no Google dependency is assumed today.
 
-Follow this approach for `integrations/speech/stt`, `speech/tts`, and
+Speech synthesis follows the same boundary via `SpeechProvider.synthesize`.
+Follow this approach for additional speech providers and
 `integrations/notifications`: a small capability-specific protocol and neutral
 result types, implemented by vendor adapters and selected in dependencies. Wait
 for actual input/output requirements before creating those protocols.

@@ -45,8 +45,9 @@ minimal rate limiting) are intentionally NOT listed.
 ## Post-V1 / scale-triggered work
 
 - Destination ranking engine over accumulated resolution/correction memory.
-- STT/TTS pipelines and LLM destination parsing behind provider-neutral
-  `integrations/` contracts (mirror the maps boundary).
+- Streaming STT partials and richer destination interpretation only if measured
+  latency/quality requires them. Bounded Azure STT and structured LLM extraction
+  are implemented; see [Azure voice pipeline](../AZURE_VOICE_PIPELINE.md).
 - Push notifications behind a capability-specific protocol; wait for real
   requirements before creating it.
 - Redis (or equivalent) ONLY when a concrete scale trigger demands it —
